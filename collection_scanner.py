@@ -13,7 +13,7 @@ __all__ = ['CollectionScanner']
 
 
 DEFAULT_BATCHSIZE = 10000
-LIMIT_KEY_CHAR = '|'
+LIMIT_KEY_CHAR = '~'
 
 
 log = logging.getLogger(__name__)
