@@ -1,1 +1,2 @@
 hubstorage==0.16.1
+retrying==1.2.3

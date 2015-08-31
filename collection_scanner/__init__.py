@@ -2,11 +2,15 @@
 Any class that scans a collection should be a subclass of this
 """
 import time
+import logging
 from collections import defaultdict
+
+from retrying import retry
 
 from hubstorage import HubstorageClient
 
-import logging
+
+from .utils import retry_on_exception
 
 
 __all__ = ['CollectionScanner']
@@ -18,6 +22,12 @@ LIMIT_KEY_CHAR = '~'
 
 log = logging.getLogger(__name__)
 
+
+@retry(wait_fixed=60000, retry_on_exception=retry_on_exception)
+def _read_from_collection(collection, **kwargs):
+    for record in collection.get(**kwargs):
+        yield record
+ 
 
 class CollectionScanner(object):
     """
@@ -42,6 +52,7 @@ class CollectionScanner(object):
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
 
+       
     def reset(self):
         """
         Resets the scanner state variables in order to start again to scan collection
@@ -59,7 +70,7 @@ class CollectionScanner(object):
             if not self.__secondary_is_empty[col.colname]:
                 count = 0
                 try:
-                    for r in col.get(count=[DEFAULT_BATCHSIZE], start=start, meta=meta):
+                    for r in _read_from_collection(col, count=[DEFAULT_BATCHSIZE], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key')
                         ts = r.pop('_ts')
@@ -107,7 +118,7 @@ class CollectionScanner(object):
             data = False
             if self.__totalcount:
                 batchsize = min(batchsize, self.__totalcount - self.count)
-            for r in self.col.get(count=[batchsize], startafter=[self.__startafter], meta=meta, **kwargs):
+            for r in _read_from_collection(self.col, count=[batchsize], startafter=[self.__startafter], meta=meta, **kwargs):
                 data = True
                 jump_prefix = False
                 for exclude in exclude_prefixes:
@@ -146,9 +157,6 @@ class CollectionScanner(object):
     def close(self):
         log.info("Total scanned: %d" % self.count)
 
-    def on_kbd_interrupt(self):
-        pass
-
     def scan_prefixes(self, codelen, **kwargs):
         """
         Generates all prefixes up to the given length
@@ -159,7 +167,7 @@ class CollectionScanner(object):
         lastkey = kwargs.pop('startafter', None)
         while data:
             data = False
-            for r in self.col.get(nodata=1, meta=['_key'], startafter=lastkey, count=1):
+            for r in _read_from_collection(self.col, nodata=1, meta=['_key'], startafter=lastkey, count=1):
                 data = True
                 code = r['_key'][:codelen]
                 lastkey = code + LIMIT_KEY_CHAR
