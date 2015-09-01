@@ -53,6 +53,7 @@ class CollectionScanner(object):
         self.__secondary_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
+        self.__enabled = True
        
     def reset(self):
         """
@@ -97,13 +98,12 @@ class CollectionScanner(object):
             timestamp = int(timestamp)
         return timestamp
 
-    def _scan_collection_batch(self, exclude_prefixes=None, **kwargs):
+    def get_new_batch(self, exclude_prefixes=None, **kwargs):
         """
         Convenient way for scanning a collection in batches
         kwargs are the collection get() parameters
         """
         exclude_prefixes = exclude_prefixes or []
-        data = True
         totalcount = kwargs.pop('count', 0)
         self.__totalcount = self.__totalcount or totalcount
         startafter = kwargs.pop('startafter', None)
@@ -114,11 +114,10 @@ class CollectionScanner(object):
         endts = self.convert_ts(kwargs.get('endts', None))
         kwargs['endts'] = endts
         kwargs['startts'] = self.convert_ts(kwargs.get('startts', None))
-
-        while data:
-            data = False
-            if self.__totalcount:
-                max_next_records = min(self.__max_next_records, self.__totalcount - self.count)
+        batchcount = self.__batchsize
+        data = False
+        max_next_records = self._get_max_next_records(batchcount)
+        while max_next_records:
             for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 data = True
                 jump_prefix = False
@@ -145,12 +144,22 @@ class CollectionScanner(object):
                         r.pop(m)
 
                 self.count += 1
+                batchcount -= 1
                 if self.count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.count))
                 yield self.process_record(r)
-                if self.count == self.__totalcount:
-                    data = False
-                    break
+            max_next_records = self._get_max_next_records(batchcount)
+        self.__enabled = data
+    
+    def _get_max_next_records(self, batchcount):
+        max_next_records = min(self.__max_next_records, batchcount)
+        if self.__totalcount:
+            max_next_records = min(max_next_records, self.__totalcount - self.count)
+        return max_next_records
+
+    def scan_collection_batches(self, exclude_prefixes=None, **kwargs):
+        while self.__enabled: 
+            yield self.get_new_batch(exclude_prefixes, **kwargs)
 
     def process_record(self, record):
         return record
