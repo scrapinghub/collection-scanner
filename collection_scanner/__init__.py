@@ -16,7 +16,7 @@ from .utils import retry_on_exception
 __all__ = ['CollectionScanner']
 
 
-DEFAULT_BATCHSIZE = 10000
+DEFAULT_BATCHSIZE = 1000000
 LIMIT_KEY_CHAR = '~'
 
 
@@ -41,7 +41,7 @@ class CollectionScanner(object):
     # TODO: logic does not work with startts
     secondary_collections = []
 
-    def __init__(self, apikey, project_id, collection_name, endpoint=None):
+    def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, max_next_records=10000):
         self.hsc = HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
         self.col = self.hsp.collections.new_store(collection_name)
@@ -51,7 +51,8 @@ class CollectionScanner(object):
         self.__startafter = None
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
-
+        self.__batchsize = batchsize
+        self.__max_next_records = max_next_records
        
     def reset(self):
         """
@@ -70,7 +71,7 @@ class CollectionScanner(object):
             if not self.__secondary_is_empty[col.colname]:
                 count = 0
                 try:
-                    for r in _read_from_collection(col, count=[DEFAULT_BATCHSIZE], start=start, meta=meta):
+                    for r in _read_from_collection(col, count=[self.__max_next_records], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key')
                         ts = r.pop('_ts')
@@ -79,7 +80,7 @@ class CollectionScanner(object):
                             secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
-                if count < DEFAULT_BATCHSIZE:
+                if count < self.__max_next_records:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
@@ -96,7 +97,7 @@ class CollectionScanner(object):
             timestamp = int(timestamp)
         return timestamp
 
-    def scan_collection(self, batchsize=DEFAULT_BATCHSIZE, exclude_prefixes=None, **kwargs):
+    def _scan_collection_batch(self, exclude_prefixes=None, **kwargs):
         """
         Convenient way for scanning a collection in batches
         kwargs are the collection get() parameters
@@ -117,8 +118,8 @@ class CollectionScanner(object):
         while data:
             data = False
             if self.__totalcount:
-                batchsize = min(batchsize, self.__totalcount - self.count)
-            for r in _read_from_collection(self.col, count=[batchsize], startafter=[self.__startafter], meta=meta, **kwargs):
+                max_next_records = min(self.__max_next_records, self.__totalcount - self.count)
+            for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 data = True
                 jump_prefix = False
                 for exclude in exclude_prefixes:
