@@ -41,30 +41,28 @@ class CollectionScanner(object):
     # TODO: logic does not work with startts
     secondary_collections = []
 
-    def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, max_next_records=10000):
+    def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
+                max_next_records=10000, startafter=None, exclude_prefixes=None, **kwargs):
         self.hsc = HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
         self.col = self.hsp.collections.new_store(collection_name)
         self.count = 0
-        self.__totalcount = 0
+        self.__totalcount = count
         self.lastkey = None
-        self.__startafter = None
+        self.__startafter = startafter
+        self.__exclude_prefixes = exclude_prefixes or []
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
         self.__enabled = True
-       
-    def reset(self):
-        """
-        Resets the scanner state variables in order to start again to scan collection
-        """
-        self.count = 0
-        self.__totalcount = 0
-        self.lastkey = None
-        self.__startafter = None
-        self.__secondary_is_empty = defaultdict(bool)
 
+        kwargs = kwargs.copy()
+        self.__endts = self.convert_ts(kwargs.get('endts', None))
+        kwargs['endts'] = self.__endts
+        kwargs['startts'] = self.convert_ts(kwargs.get('startts', None))
+        self.__get_kwargs = kwargs
+       
     def get_secondary_data(self, start, meta):
         secondary_data = defaultdict(dict)
         last = None
@@ -98,22 +96,14 @@ class CollectionScanner(object):
             timestamp = int(timestamp)
         return timestamp
 
-    def get_new_batch(self, exclude_prefixes=None, **kwargs):
+    def get_new_batch(self):
         """
         Convenient way for scanning a collection in batches
-        kwargs are the collection get() parameters
         """
-        exclude_prefixes = exclude_prefixes or []
-        totalcount = kwargs.pop('count', 0)
-        self.__totalcount = self.__totalcount or totalcount
-        startafter = kwargs.pop('startafter', None)
-        self.__startafter = self.__startafter or startafter
+        kwargs = self.__get_kwargs.copy()
         original_meta = kwargs.pop('meta', [])
         meta = {'_key', '_ts'}.union(original_meta)
         last_secondary_key = None
-        endts = self.convert_ts(kwargs.get('endts', None))
-        kwargs['endts'] = endts
-        kwargs['startts'] = self.convert_ts(kwargs.get('startts', None))
         batchcount = self.__batchsize
         data = False
         max_next_records = self._get_max_next_records(batchcount)
@@ -121,7 +111,7 @@ class CollectionScanner(object):
             for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 data = True
                 jump_prefix = False
-                for exclude in exclude_prefixes:
+                for exclude in self.__exclude_prefixes:
                     if r['_key'].startswith(exclude):
                         self.__startafter = exclude + LIMIT_KEY_CHAR
                         jump_prefix = True
@@ -136,7 +126,7 @@ class CollectionScanner(object):
                     r.update(secondary_data[r['_key']])
                     if ts > r['_ts']:
                         r['_ts'] = ts
-                if endts and r['_ts'] > endts:
+                if self.__endts and r['_ts'] > self.__endts:
                     continue
 
                 for m in ['_key', '_ts']:
@@ -157,9 +147,9 @@ class CollectionScanner(object):
             max_next_records = min(max_next_records, self.__totalcount - self.count)
         return max_next_records
 
-    def scan_collection_batches(self, exclude_prefixes=None, **kwargs):
+    def scan_collection_batches(self):
         while self.__enabled: 
-            yield self.get_new_batch(exclude_prefixes, **kwargs)
+            yield self.get_new_batch()
 
     def process_record(self, record):
         return record
@@ -167,14 +157,12 @@ class CollectionScanner(object):
     def close(self):
         log.info("Total scanned: %d" % self.count)
 
-    def scan_prefixes(self, codelen, **kwargs):
+    def scan_prefixes(self, codelen):
         """
         Generates all prefixes up to the given length
         """
         data = True
-        for karg in ['count', 'meta', 'nodata']:
-            kwargs.pop(karg, None)
-        lastkey = kwargs.pop('startafter', None)
+        lastkey = self.__startafter
         while data:
             data = False
             for r in _read_from_collection(self.col, nodata=1, meta=['_key'], startafter=lastkey, count=1):
