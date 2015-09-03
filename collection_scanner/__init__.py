@@ -25,9 +25,8 @@ log = logging.getLogger(__name__)
 
 @retry(wait_fixed=60000, retry_on_exception=retry_on_exception)
 def _read_from_collection(collection, **kwargs):
-    for record in collection.get(**kwargs):
-        yield record
- 
+    return collection.get(**kwargs)
+
 
 class CollectionScanner(object):
     """
