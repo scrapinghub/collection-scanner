@@ -136,7 +136,7 @@ class CollectionScanner(object):
                 batchcount -= 1
                 if self.count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.count))
-                yield self.process_record(r)
+                yield r
             self.__enabled = count >= max_next_records
             max_next_records = self._get_max_next_records(batchcount)
     
@@ -149,9 +149,6 @@ class CollectionScanner(object):
     def scan_collection_batches(self):
         while self.__enabled: 
             yield self.get_new_batch()
-
-    def process_record(self, record):
-        return record
 
     def close(self):
         log.info("Total scanned: %d" % self.count)
