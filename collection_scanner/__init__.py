@@ -105,11 +105,11 @@ class CollectionScanner(object):
         meta = {'_key', '_ts'}.union(original_meta)
         last_secondary_key = None
         batchcount = self.__batchsize
-        data = False
         max_next_records = self._get_max_next_records(batchcount)
-        while max_next_records:
+        while max_next_records and self.__enabled:
+            count = 0
             for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
-                data = True
+                count += 1
                 jump_prefix = False
                 for exclude in self.__exclude_prefixes:
                     if r['_key'].startswith(exclude):
@@ -138,8 +138,8 @@ class CollectionScanner(object):
                 if self.count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.count))
                 yield self.process_record(r)
+            self.__enabled = count >= max_next_records
             max_next_records = self._get_max_next_records(batchcount)
-        self.__enabled = data
     
     def _get_max_next_records(self, batchcount):
         max_next_records = min(self.__max_next_records, batchcount)
