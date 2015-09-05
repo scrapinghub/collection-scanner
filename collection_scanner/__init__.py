@@ -23,7 +23,7 @@ LIMIT_KEY_CHAR = '~'
 log = logging.getLogger(__name__)
 
 
-@retry(wait_fixed=60000, retry_on_exception=retry_on_exception)
+@retry(wait_fixed=120000, retry_on_exception=retry_on_exception)
 def _read_from_collection(collection, **kwargs):
     return collection.get(**kwargs)
 
@@ -45,7 +45,7 @@ class CollectionScanner(object):
         self.hsc = HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
         self.col = self.hsp.collections.new_store(collection_name)
-        self.count = 0
+        self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
         self.__startafter = startafter
@@ -61,7 +61,18 @@ class CollectionScanner(object):
         kwargs['endts'] = self.__endts
         kwargs['startts'] = self.convert_ts(kwargs.get('startts', None))
         self.__get_kwargs = kwargs
-       
+
+    def reset(self):
+        """
+        Resets the scanner state variables in order to start again to scan collection
+        """
+        self.__scanned_count = 0
+        self.__totalcount = 0
+        self.lastkey = None
+        self.__startafter = None
+        self.__secondary_is_empty = defaultdict(bool)
+        self.__enabled = True
+
     def get_secondary_data(self, start, meta):
         secondary_data = defaultdict(dict)
         last = None
@@ -132,26 +143,26 @@ class CollectionScanner(object):
                     if m not in original_meta:
                         r.pop(m)
 
-                self.count += 1
+                self.__scanned_count += 1
                 batchcount -= 1
-                if self.count % 10000 == 0:
-                    log.info("Last key: {}, Scanned {}".format(self.lastkey, self.count))
+                if self.__scanned_count % 10000 == 0:
+                    log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count >= max_next_records and (not self.__totalcount or self.count < self.__totalcount)
+            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount)
             max_next_records = self._get_max_next_records(batchcount)
-    
+
     def _get_max_next_records(self, batchcount):
         max_next_records = min(self.__max_next_records, batchcount)
         if self.__totalcount:
-            max_next_records = min(max_next_records, self.__totalcount - self.count)
+            max_next_records = min(max_next_records, self.__totalcount - self.__scanned_count)
         return max_next_records
 
     def scan_collection_batches(self):
-        while self.__enabled: 
+        while self.__enabled:
             yield self.get_new_batch()
 
     def close(self):
-        log.info("Total scanned: %d" % self.count)
+        log.info("Total scanned: %d" % self.__scanned_count)
 
     def scan_prefixes(self, codelen):
         """
@@ -182,3 +193,7 @@ class CollectionScanner(object):
                 else:
                     ttime = time.strptime(strtime, '%Y-%m-%d')
                 return repr(int(time.mktime(ttime) * 1000))
+
+    @property
+    def scanned_count(self):
+        return self.__scanned_count
