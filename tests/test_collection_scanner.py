@@ -73,6 +73,11 @@ class CollectionScannerTest(BaseCollectionScannerTest):
                     self._get_scanner_records(client_mock, collection_name='test', count=150, meta=['_key'])
         self.assertEqual(len(keys), 150)
 
+    def test_endts(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 20:00:00')
+        self.assertEqual(len(keys), 500)
+
 
 @patch('hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
@@ -85,4 +90,11 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
                     self._get_scanner_records(client_mock, collection_name='test', meta=['_key'])
         self.assertEqual(len(keys), 1000)
         for record in records:
-            self.assertTrue('field3' in record)
+            self.assertEqual(record['field1'], record['field3'])
+
+    def test_endts(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 20:00:00')
+        self.assertEqual(len(keys), 500)
+        for record in records:
+            self.assertEqual(record['field1'], record['field3'])

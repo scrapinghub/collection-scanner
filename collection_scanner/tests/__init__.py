@@ -13,10 +13,9 @@ class FakeCollection(object):
         """
         self.colname = name
         self.samples = sorted(samples, key=itemgetter(0))
-        self.base_time = 1441940400000
+        self.base_time = 1441940400000 # 2015-09-11
     
-    @staticmethod
-    def _must_issue_record(key, **kwargs):
+    def _must_issue_record(self, key, **kwargs):
         prefixes = kwargs.get('prefix')
         retval = prefixes is None
         if not retval:
@@ -27,7 +26,8 @@ class FakeCollection(object):
         startafter = kwargs.get('startafter') or ''
         if isinstance(startafter, list):
             startafter = startafter[0]
-        retval = retval and key > startafter
+        endts = kwargs.get('endts')
+        retval = retval and key > startafter and (not endts or self.base_time < endts)
         return retval
 
 
@@ -44,11 +44,11 @@ class FakeCollection(object):
                     rvalue['_key'] = key
                 if include_ts:
                     rvalue['_ts'] = self.base_time
-                self.base_time += 3600
                 yield rvalue
                 count -= 1
                 if count == 0:
                     break
+            self.base_time += 3600000 # each record separated by one hour
 
 class FakeCollections(object):
     def __init__(self, project):
