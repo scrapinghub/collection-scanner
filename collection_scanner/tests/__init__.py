@@ -7,12 +7,13 @@ from copy import deepcopy
 from mock import patch
 
 class FakeCollection(object):
-    def __init__(self, samples):
+    def __init__(self, name, samples):
         """
         samples is a list of tuples (key, record dict)
         """
+        self.colname = name
         self.samples = sorted(samples, key=itemgetter(0))
-        self.base_time = 1442003291000
+        self.base_time = 1441940400000
     
     @staticmethod
     def _must_issue_record(key, **kwargs):
@@ -36,22 +37,25 @@ class FakeCollection(object):
         count = kwargs.get('count') or None
         if isinstance(count, list):
             count = count[0]
-        for key, value in self.samples[:count]:
+        for key, value in self.samples:
             rvalue = deepcopy(value)
             if self._must_issue_record(key, **kwargs):
                 if include_key:
                     rvalue['_key'] = key
                 if include_ts:
                     rvalue['_ts'] = self.base_time
-                    self.base_time += 10
+                self.base_time += 3600
                 yield rvalue
+                count -= 1
+                if count == 0:
+                    break
 
 class FakeCollections(object):
     def __init__(self, project):
         self.project = project
 
     def new_store(self, name):
-        return FakeCollection(self.project.client.samples[name])
+        return FakeCollection(name, self.project.client.samples[name])
 
 class FakeProject(object):
     def __init__(self, client):
