@@ -7,8 +7,7 @@ from collections import defaultdict
 
 from retrying import retry
 
-from hubstorage import HubstorageClient
-
+import hubstorage
 
 from .utils import retry_on_exception
 
@@ -42,7 +41,7 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                 max_next_records=10000, startafter=None, exclude_prefixes=None, **kwargs):
-        self.hsc = HubstorageClient(apikey, endpoint=endpoint)
+        self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
         self.col = self.hsp.collections.new_store(collection_name)
         self.__scanned_count = 0
@@ -118,9 +117,9 @@ class CollectionScanner(object):
         max_next_records = self._get_max_next_records(batchcount)
         while max_next_records and self.__enabled:
             count = 0
+            jump_prefix = False
             for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 count += 1
-                jump_prefix = False
                 for exclude in self.__exclude_prefixes:
                     if r['_key'].startswith(exclude):
                         self.__startafter = exclude + LIMIT_KEY_CHAR
@@ -148,7 +147,7 @@ class CollectionScanner(object):
                 if self.__scanned_count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount)
+            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
             max_next_records = self._get_max_next_records(batchcount)
 
     def _get_max_next_records(self, batchcount):
