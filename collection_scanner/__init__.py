@@ -101,8 +101,6 @@ class CollectionScanner(object):
             timestamp = timestamp[0]
         if isinstance(timestamp, basestring):
             timestamp = self.str_to_msecs(timestamp)
-        if timestamp is not None:
-            timestamp = int(timestamp)
         return timestamp
 
     def get_new_batch(self):
@@ -185,13 +183,13 @@ class CollectionScanner(object):
         """
         if strtime:
             try:
-                return repr(int(strtime))
+                return int(strtime)
             except ValueError:
                 if ':' in strtime:
                     ttime = time.strptime(strtime, '%Y-%m-%d %H:%M:%S')
                 else:
                     ttime = time.strptime(strtime, '%Y-%m-%d')
-                return repr(int(time.mktime(ttime) * 1000))
+                return int(time.mktime(ttime) * 1000)
 
     @property
     def scanned_count(self):
