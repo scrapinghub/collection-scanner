@@ -102,6 +102,7 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
 class MiscelaneousTest(TestCase):
     def test_str_to_msecs(self):
         self.assertEqual(CollectionScanner.str_to_msecs(100), 100)
+        self.assertEqual(CollectionScanner.str_to_msecs(0), 0)
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08'), 1441670400000)
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08 20:00:00'), 1441742400000)
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08T20:00:00'), 1441742400000)
