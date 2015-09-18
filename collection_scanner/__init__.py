@@ -190,7 +190,7 @@ class CollectionScanner(object):
                     ttime = time.strptime(strtime, '%Y-%m-%d %H:%M:%S')
                 else:
                     ttime = time.strptime(strtime, '%Y-%m-%d')
-                return int(time.mktime(ttime) + time.timezone) * 1000
+                return int(time.mktime(ttime) - time.timezone) * 1000
 
     @property
     def scanned_count(self):
