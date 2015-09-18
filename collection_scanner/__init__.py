@@ -185,11 +185,12 @@ class CollectionScanner(object):
             try:
                 return int(strtime)
             except ValueError:
+                strtime = strtime.replace('T', ' ')
                 if ':' in strtime:
                     ttime = time.strptime(strtime, '%Y-%m-%d %H:%M:%S')
                 else:
                     ttime = time.strptime(strtime, '%Y-%m-%d')
-                return int(time.mktime(ttime) * 1000)
+                return int(time.mktime(ttime) + time.timezone) * 1000
 
     @property
     def scanned_count(self):

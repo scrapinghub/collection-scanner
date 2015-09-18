@@ -75,7 +75,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
 
     def test_endts(self, client_mock):
         scanner, records, keys, batch_count = \
-                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 20:00:00')
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 23:00:00')
         self.assertEqual(len(keys), 500)
 
 
@@ -94,7 +94,7 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
 
     def test_endts(self, client_mock):
         scanner, records, keys, batch_count = \
-                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 20:00:00')
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], endts='2015-10-01 23:00:00')
         self.assertEqual(len(keys), 500)
         for record in records:
             self.assertEqual(record['field1'], record['field3'])
@@ -102,5 +102,6 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
 class MiscelaneousTest(TestCase):
     def test_str_to_msecs(self):
         self.assertEqual(CollectionScanner.str_to_msecs(100), 100)
-        self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08'), 1441681200000)
-        self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08 20:00:00'), 1441753200000)
+        self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08'), 1441670400000)
+        self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08 20:00:00'), 1441742400000)
+        self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08T20:00:00'), 1441742400000)
