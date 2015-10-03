@@ -2,6 +2,7 @@
 Any class that scans a collection should be a subclass of this
 """
 import time
+from dateutil import parser
 import logging
 from collections import defaultdict
 
@@ -181,16 +182,11 @@ class CollectionScanner(object):
         Converts from '%Y-%m-%d %H:%M:%S' or '%Y-%m-%d' format to epoch milisecs,
         which is the time representation used by hubstorage
         """
-        if strtime:
-            try:
-                return int(strtime)
-            except ValueError:
-                strtime = strtime.replace('T', ' ')
-                if ':' in strtime:
-                    ttime = time.strptime(strtime, '%Y-%m-%d %H:%M:%S')
-                else:
-                    ttime = time.strptime(strtime, '%Y-%m-%d')
-                return int(time.mktime(ttime) - time.timezone) * 1000
+        if isinstance(strtime, int):
+            return strtime
+        if isinstance(strtime, basestring):
+            d = parser.parse(strtime)
+            return int(time.mktime(d.timetuple()) - time.timezone) * 1000
         return 0
 
     @property
