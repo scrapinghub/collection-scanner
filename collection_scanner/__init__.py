@@ -176,6 +176,9 @@ class CollectionScanner(object):
                 lastkey = code + LIMIT_KEY_CHAR
                 yield code
 
+    def set_startafter(self, startafter):
+        self.__startafter = startafter
+
     @staticmethod
     def str_to_msecs(strtime):
         """
