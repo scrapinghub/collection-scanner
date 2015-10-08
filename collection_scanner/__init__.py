@@ -1,5 +1,18 @@
 """
-Any class that scans a collection should be a subclass of this
+High level hubstorage collection scanner
+
+Basic usage:
+
+from collection_scanner import CollectionScanner
+
+scanner = CollectionScanner(<apikey>, <project id>, <collection name>, **kwargs)
+batches = scanner.scan_collection_batches()
+batch = next(batches)
+for record in batch:
+    ...
+
+Before getting a new batch you can set a new startafter value with set_startafter() method.
+
 """
 import time
 from dateutil import parser
@@ -42,6 +55,22 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                 max_next_records=10000, startafter=None, exclude_prefixes=None, **kwargs):
+        """
+        apikey - hubstorage apikey with access to given project
+        project_id - target project id
+        collection_name - target collection
+        endpoint - hubstorage server endpoint (defaults to python-hubstorage default)
+        batchsize - size of each batch in number of records
+        count - total count of records to retrieve
+        max_next_records - how many records get on each call to hubstorage server
+        startafter - start to scan after given hs key
+        exclude_prefix - a list of key prefixes to exclude from scanning
+        **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
+                - prefix (list of key prefixes to include in the scan)
+                - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
+                - meta (a list with either '_ts' and/or '_key')
+                etc (see husbtorage documentation)
+        """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
         self.col = self.hsp.collections.new_store(collection_name)
