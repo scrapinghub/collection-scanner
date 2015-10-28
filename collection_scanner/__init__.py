@@ -36,7 +36,7 @@ LIMIT_KEY_CHAR = '~'
 log = logging.getLogger(__name__)
 
 
-@retry(wait_fixed=120000, retry_on_exception=retry_on_exception)
+@retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
 def _read_from_collection(collection, **kwargs):
     return collection.get(**kwargs)
 
