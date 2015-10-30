@@ -14,7 +14,7 @@ class BaseCollectionScannerTest(TestCase):
     }
     scanner_class = CollectionScanner
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
-        client_mock.return_value = FakeClient(self.samples)
+        client_mock.return_value = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
         scanner = self.scanner_class('apikey', 0, **kwargs)
         records = []
         keys = set()
@@ -94,6 +94,12 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(records[200]['_key'], 'AD800')
         self.assertEqual(records[300]['_key'], 'AD900')
         self.assertEqual(records[-1]['_key'], 'AD999')
+
+    def test_server_returns_less_records_than_requested(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], batchsize=100, return_less=20)
+        self.assertEqual(len(keys), 1000)
+        self.assertEqual(batch_count, 1)
 
 
 @patch('hubstorage.HubstorageClient', autospec=True)

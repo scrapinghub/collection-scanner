@@ -175,7 +175,7 @@ class CollectionScanner(object):
                 if self.__scanned_count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
+            self.__enabled = count and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
             max_next_records = self._get_max_next_records(batchcount)
 
     def _get_max_next_records(self, batchcount):
