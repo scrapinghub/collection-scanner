@@ -118,7 +118,7 @@ class CollectionScanner(object):
                             secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
-                if count < self.__max_next_records:
+                if not count:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
