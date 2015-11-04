@@ -224,3 +224,7 @@ class CollectionScanner(object):
     @property
     def scanned_count(self):
         return self.__scanned_count
+
+    @property
+    def is_enabled(self):
+        return self.__enabled
