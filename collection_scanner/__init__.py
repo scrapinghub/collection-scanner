@@ -54,7 +54,7 @@ class CollectionScanner(object):
     secondary_collections = []
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                max_next_records=10000, startafter=None, exclude_prefixes=None, **kwargs):
+                max_next_records=10000, startafter=None, exclude_prefixes=None, secondary_collections=None, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -65,6 +65,7 @@ class CollectionScanner(object):
         max_next_records - how many records get on each call to hubstorage server
         startafter - start to scan after given hs key
         exclude_prefix - a list of key prefixes to exclude from scanning
+        secondary_collections - a list of secondary collections that updates the class default one.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -79,6 +80,7 @@ class CollectionScanner(object):
         self.lastkey = None
         self.__startafter = startafter
         self.__exclude_prefixes = exclude_prefixes or []
+        self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
