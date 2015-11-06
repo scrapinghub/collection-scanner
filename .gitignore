@@ -1,0 +1,12 @@
+*.pyc
+/build
+/*.egg-info
+/dist
+.tox
+venv
+.idea
+.eggs
+htmlcov
+.coverage
+.vim.custom
+docs/_build
