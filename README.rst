@@ -5,4 +5,5 @@ High level hubstorage collection scanner
 - Allows to merge data from multiple collections
 - Accepts endts and startts in many string formats (as accepted by dateutil lib) or standard HS epoch in millisecs
 - Accepts excluded prefixes
+- Adds stopbefore feature (analogous to startafter but the inverse)
 - Provides method for arbitrary prefix aggregation counting

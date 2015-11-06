@@ -54,7 +54,7 @@ class CollectionScanner(object):
     secondary_collections = []
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                max_next_records=10000, startafter=None, exclude_prefixes=None, secondary_collections=None, **kwargs):
+                max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -63,7 +63,8 @@ class CollectionScanner(object):
         batchsize - size of each batch in number of records
         count - total count of records to retrieve
         max_next_records - how many records get on each call to hubstorage server
-        startafter - start to scan after given hs key
+        startafter - start to scan after given hs key prefix
+        stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
@@ -79,6 +80,7 @@ class CollectionScanner(object):
         self.__totalcount = count
         self.lastkey = None
         self.__startafter = startafter
+        self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
@@ -149,6 +151,9 @@ class CollectionScanner(object):
             count = 0
             jump_prefix = False
             for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
+                if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
+                    self.__enabled = False
+                    break
                 count += 1
                 for exclude in self.__exclude_prefixes:
                     if r['_key'].startswith(exclude):

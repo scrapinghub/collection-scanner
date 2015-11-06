@@ -61,6 +61,18 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 200)
         self.assertEqual(batch_count, 1)
 
+    def test_stopbefore(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', stopbefore='AD3', meta=['_key'])
+        self.assertEqual(len(keys), 300)
+        self.assertEqual(batch_count, 1)
+
+    def test_startafter_stopbefore(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', startafter='AD3', stopbefore='AD8', meta=['_key'])
+        self.assertEqual(len(keys), 500)
+        self.assertEqual(batch_count, 1)
+
     def test_batchsize(self, client_mock):
         scanner, records, keys, batch_count = \
                     self._get_scanner_records(client_mock, collection_name='test', batchsize=501, meta=['_key'])
