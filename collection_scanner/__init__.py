@@ -52,9 +52,11 @@ class CollectionScanner(object):
     # are always a subset of key set of principal.
     # TODO: logic does not work with startts
     secondary_collections = []
+    has_many_collections = {}
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None, **kwargs):
+                 max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
+                 has_many_collections=None, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -67,6 +69,8 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
+        has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
+                               items that will be added to 'property_name' property (a list)
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -85,6 +89,8 @@ class CollectionScanner(object):
         self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
+        self.has_many_collections = has_many_collections or {}
+        self.has_many = {prop: self.hsp.collections.new_store(col) for prop, col in self.has_many_collections.items()}
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
         self.__enabled = True
@@ -165,6 +171,13 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or r['_key'] > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
+                for prop, has_many_col in self.has_many:
+                    sub_items = _read_from_collection(has_many_col, prefix='%s_' % r['_key'])
+                    if sub_items:
+                        if r.get(prop):
+                            log.error("Items of has-many relationship can't be assigned to property %s, it's already defined on item %s")
+                        else:
+                            r[prop] = sub_items
                 if r['_key'] in secondary_data:
                     ts = secondary_data[r['_key']]['_ts']
                     r.update(secondary_data[r['_key']])
