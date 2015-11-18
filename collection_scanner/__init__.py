@@ -29,7 +29,7 @@ from .utils import retry_on_exception
 __all__ = ['CollectionScanner']
 
 
-DEFAULT_BATCHSIZE = 1000000
+DEFAULT_BATCHSIZE = 10000
 LIMIT_KEY_CHAR = '~'
 
 
