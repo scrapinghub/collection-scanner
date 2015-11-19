@@ -100,7 +100,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
                     self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD399', 'AD799'],
                     startafter='AD8', meta=['_key'], batchsize=100)
         self.assertEqual(len(keys), 400)
-        self.assertEqual(batch_count, 5)
+        self.assertEqual(batch_count, 4)
         self.assertEqual(records[0]['_key'], 'AD100')
         self.assertEqual(records[100]['_key'], 'AD400')
         self.assertEqual(records[200]['_key'], 'AD800')
@@ -111,7 +111,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         scanner, records, keys, batch_count = \
                     self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], batchsize=100, return_less=20)
         self.assertEqual(len(keys), 1000)
-        self.assertEqual(batch_count, 1)
+        self.assertEqual(batch_count, 10)
 
 
 @patch('hubstorage.HubstorageClient', autospec=True)

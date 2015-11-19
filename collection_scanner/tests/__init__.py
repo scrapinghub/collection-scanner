@@ -41,7 +41,7 @@ class FakeCollection(object):
         include_ts = '_ts' in kwargs.get('meta', {})
         count = kwargs.get('count') or None
         if isinstance(count, list):
-            count = count[0]
+            count = count[0] or None
         for key, value in self.samples:
             rvalue = deepcopy(value)
             if self._must_issue_record(key, **kwargs):
@@ -52,7 +52,7 @@ class FakeCollection(object):
                 yield rvalue
                 if count is not None:
                     count -= 1
-                    if count == self.return_less:
+                    if count == self.return_less or count == 0:
                         break
             self.base_time += 3600000 # each record separated by one hour
 

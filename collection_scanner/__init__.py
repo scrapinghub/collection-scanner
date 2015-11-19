@@ -44,11 +44,37 @@ class _CollectionWrapper(object):
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
+        else:
+            for p in range(partitions):
+                self.collections.append(hsp.collections.new_store("%{}_%{}".format(colname, p)))
 
     def get(self, **kwargs):
-        for collection in self.collections:
-            for record in self._read_from_collection(collection, **kwargs):
-                yield record
+        cache = {}
+        initial_count = total_count = kwargs.pop('count')[0] # must always be used with count parameter
+        initial_startafter = kwargs.pop('startafter', None)
+        collections = list(self.collections)
+        startafter = {col.colname: initial_startafter for col in collections}
+        while collections and total_count > 0:
+            count = total_count / len(collections) + 10 * len(collections)
+            for col in collections:
+                retrieved = 0
+                data = True
+                while data and retrieved < count:
+                    data = False
+                    for record in self._read_from_collection(col, count=[count - retrieved], startafter=startafter[col.colname], **kwargs):
+                        data = True
+                        retrieved += 1
+                        total_count -= 1
+                        cache[record['_key']] = record
+                        startafter[col.colname] = record['_key']
+                    if not data:
+                        collections.remove(col)
+        returned = 0
+        for key in sorted(cache.keys()):
+            yield cache.pop(key)
+            returned += 1
+            if returned == initial_count:
+                return
 
     @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
     def _read_from_collection(self, collection, **kwargs):
@@ -138,7 +164,7 @@ class CollectionScanner(object):
                             secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
-                if not count:
+                if count < self.__max_next_records:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
@@ -198,7 +224,7 @@ class CollectionScanner(object):
                 if self.__scanned_count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
+            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
             max_next_records = self._get_max_next_records(batchcount)
 
     def _get_max_next_records(self, batchcount):
@@ -209,7 +235,9 @@ class CollectionScanner(object):
 
     def scan_collection_batches(self):
         while self.__enabled:
-            yield self.get_new_batch()
+            batch = list(self.get_new_batch())
+            if batch:
+                yield batch
 
     def close(self):
         log.info("Total scanned: %d" % self.__scanned_count)
