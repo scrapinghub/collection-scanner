@@ -131,6 +131,40 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         self.assertEqual(len(records), 4000)
         self.assertEqual(len(keys), 4000)
 
+    def test_partitioned_startafter(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    startafter='AD2499')
+        self.assertEqual(batch_count, 15)
+        self.assertEqual(len(records), 1500)
+        self.assertEqual(len(keys), 1500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD2500')
+        self.assertEqual(records[-1]['_key'], 'AD3999')
+
+    def test_partitioned_stopbefore(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    stopbefore='AD2500')
+        self.assertEqual(batch_count, 25)
+        self.assertEqual(len(records), 2500)
+        self.assertEqual(len(keys), 2500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD0000')
+        self.assertEqual(records[-1]['_key'], 'AD2499')
+
+    def test_partitioned_count(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    startafter='AD2199', count=500)
+        self.assertEqual(batch_count, 5)
+        self.assertEqual(len(records), 500)
+        self.assertEqual(len(keys), 500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD2200')
+        self.assertEqual(records[-1]['_key'], 'AD2699')
+
+
 @patch('hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
     class MyCollectionScanner(CollectionScanner):
