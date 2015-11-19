@@ -12,6 +12,7 @@ class BaseCollectionScannerTest(TestCase):
         'test': [('AD%.3d' % i, {'field1': 'value 1-%.3d' % i, 'field2': 'value 2-%.3d' % i}) for i in range(1000)],
         'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)]
     }
+
     scanner_class = CollectionScanner
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
         client_mock.return_value = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
@@ -113,6 +114,22 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 1000)
         self.assertEqual(batch_count, 10)
 
+
+@patch('hubstorage.HubstorageClient', autospec=True)
+class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
+    samples = {}
+    for partition in range(4):
+        samples['testp_%d' % partition] = []
+    for i in range(4000):
+        partition = i % 4
+        samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
+
+    def test_partitioned(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4)
+        self.assertEqual(batch_count, 40)
+        self.assertEqual(len(records), 4000)
+        self.assertEqual(len(keys), 4000)
 
 @patch('hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):

@@ -46,7 +46,7 @@ class _CollectionWrapper(object):
             self.collections.append(hsp.collections.new_store(colname))
         else:
             for p in range(partitions):
-                self.collections.append(hsp.collections.new_store("%{}_%{}".format(colname, p)))
+                self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
     def get(self, **kwargs):
         cache = {}
@@ -56,7 +56,7 @@ class _CollectionWrapper(object):
         startafter = {col.colname: initial_startafter for col in collections}
         while collections and total_count > 0:
             count = total_count / len(collections) + 10 * len(collections)
-            for col in collections:
+            for col in list(collections):
                 retrieved = 0
                 data = True
                 while data and retrieved < count:
@@ -95,7 +95,7 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                 max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
-                partitioned=None, **kwargs):
+                num_partitions=None, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -108,7 +108,7 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
-        partitioned - An integer. If provided, the collection is partitioned among the given number of partitions.
+        num_partitions - An integer. If provided, the collection is partitioned among the given number of partitions.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -117,7 +117,7 @@ class CollectionScanner(object):
         """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
-        self.col = _CollectionWrapper(self.hsp, collection_name, partitioned)
+        self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
