@@ -36,9 +36,23 @@ LIMIT_KEY_CHAR = '~'
 log = logging.getLogger(__name__)
 
 
-@retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
-def _read_from_collection(collection, **kwargs):
-    return collection.get(**kwargs)
+class _CollectionWrapper(object):
+    def __init__(self, hsp, colname, partitions=None):
+        self.hsp = hsp
+        self.colname = colname
+        self.collections = []
+
+        if not partitions:
+            self.collections.append(hsp.collections.new_store(colname))
+
+    def get(self, **kwargs):
+        for collection in self.collections:
+            for record in self._read_from_collection(collection, **kwargs):
+                yield record
+
+    @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
+    def _read_from_collection(self, collection, **kwargs):
+        return collection.get(**kwargs)
 
 
 class CollectionScanner(object):
@@ -54,7 +68,8 @@ class CollectionScanner(object):
     secondary_collections = []
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None, **kwargs):
+                max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
+                partitioned=None, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -67,6 +82,7 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
+        partitioned - An integer. If provided, the collection is partitioned among the given number of partitions.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -75,7 +91,7 @@ class CollectionScanner(object):
         """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
-        self.col = self.hsp.collections.new_store(collection_name)
+        self.col = _CollectionWrapper(self.hsp, collection_name, partitioned)
         self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
@@ -83,7 +99,7 @@ class CollectionScanner(object):
         self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
-        self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
+        self.secondary = [_CollectionWrapper(self.hsp, name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
@@ -113,7 +129,7 @@ class CollectionScanner(object):
             if not self.__secondary_is_empty[col.colname]:
                 count = 0
                 try:
-                    for r in _read_from_collection(col, count=[self.__max_next_records], start=start, meta=meta):
+                    for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key')
                         ts = r.pop('_ts')
@@ -150,7 +166,7 @@ class CollectionScanner(object):
         while max_next_records and self.__enabled:
             count = 0
             jump_prefix = False
-            for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
+            for r in self.col.get(count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
                     self.__enabled = False
                     break
@@ -206,7 +222,7 @@ class CollectionScanner(object):
         lastkey = self.__startafter
         while data:
             data = False
-            for r in _read_from_collection(self.col, nodata=1, meta=['_key'], startafter=lastkey, count=1):
+            for r in self.col.get(nodata=1, meta=['_key'], startafter=lastkey, count=1):
                 data = True
                 code = r['_key'][:codelen]
                 lastkey = code + LIMIT_KEY_CHAR
