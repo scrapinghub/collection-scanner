@@ -4,7 +4,6 @@ utils for mocking hubstorage collection
 from operator import itemgetter
 from copy import deepcopy
 
-from mock import patch
 
 class FakeCollection(object):
     def __init__(self, name, samples, return_less=0):
@@ -19,10 +18,10 @@ class FakeCollection(object):
         self.samples = sorted(samples, key=itemgetter(0))
         self.return_less = return_less
         self.base_time = 1441940400000 # 2015-09-11
-    
+
     def _must_issue_record(self, key, **kwargs):
         prefix = kwargs.get('prefix')
-        retval = True if prefix is None else key.startswith(prefix)
+        retval = True if prefix is None else key.startswith(tuple(prefix))
         startafter = kwargs.get('startafter') or ''
         if isinstance(startafter, list):
             startafter = startafter[0]
