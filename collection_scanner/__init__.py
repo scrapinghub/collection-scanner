@@ -89,7 +89,7 @@ class CollectionScanner(object):
         self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
-        self.has_many_collections = has_many_collections or {}
+        self.has_many_collections.update(has_many_collections or {})
         self.has_many = {prop: self.hsp.collections.new_store(col) for prop, col in self.has_many_collections.items()}
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
@@ -171,13 +171,13 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or r['_key'] > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                for prop, has_many_col in self.has_many:
+                for prop, has_many_col in self.has_many.iteritems():
                     sub_items = _read_from_collection(has_many_col, prefix='%s_' % r['_key'])
                     if sub_items:
                         if r.get(prop):
                             log.error("Items of has-many relationship can't be assigned to property %s, it's already defined on item %s")
                         else:
-                            r[prop] = sub_items
+                            r[prop] = list(sub_items)
                 if r['_key'] in secondary_data:
                     ts = secondary_data[r['_key']]['_ts']
                     r.update(secondary_data[r['_key']])

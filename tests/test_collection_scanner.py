@@ -10,7 +10,8 @@ class BaseCollectionScannerTest(TestCase):
     samples = {
         # collection name -> records
         'test': [('AD%.3d' % i, {'field1': 'value 1-%.3d' % i, 'field2': 'value 2-%.3d' % i}) for i in range(1000)],
-        'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)]
+        'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)],
+        'test_many_collections': [('AD%.3d_%d' % (i, j), {'field3': 'value 1-%.3d_%d' % (i, j)}) for i in range(1000) for j in range(3)]
     }
     scanner_class = CollectionScanner
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
@@ -31,7 +32,7 @@ class BaseCollectionScannerTest(TestCase):
                 scanner.set_startafter(startafter_list.pop(0))
         return scanner, records, sorted(keys), batch_count
 
-   
+
 @patch('hubstorage.HubstorageClient', autospec=True)
 class CollectionScannerTest(BaseCollectionScannerTest):
 
@@ -133,6 +134,21 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 500)
         for record in records:
             self.assertEqual(record['field1'], record['field3'])
+
+@patch('hubstorage.HubstorageClient', autospec=True)
+class HasManyCollectionScannerTest(BaseCollectionScannerTest):
+    class MyCollectionScanner(CollectionScanner):
+        has_many_collections = {'col_field': 'test_many_collections'}
+    scanner_class = MyCollectionScanner
+
+    def test_get(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='test', meta=['_key'])
+        self.assertEqual(len(keys), 1000)
+        for record in records:
+            for r in record['col_field']:
+                self.assertTrue(r['field3'].startswith(record['field1']))
+
 
 
 class MiscelaneousTest(TestCase):

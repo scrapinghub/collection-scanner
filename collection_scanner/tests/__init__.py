@@ -21,20 +21,14 @@ class FakeCollection(object):
         self.base_time = 1441940400000 # 2015-09-11
     
     def _must_issue_record(self, key, **kwargs):
-        prefixes = kwargs.get('prefix')
-        retval = prefixes is None
-        if not retval:
-            for prefix in prefixes:
-                if key.startswith(prefix):
-                    retval = True
-                    break
+        prefix = kwargs.get('prefix')
+        retval = True if prefix is None else key.startswith(prefix)
         startafter = kwargs.get('startafter') or ''
         if isinstance(startafter, list):
             startafter = startafter[0]
         endts = kwargs.get('endts')
         retval = retval and key > startafter and (not endts or self.base_time < endts)
         return retval
-
 
     def get(self, **kwargs):
         include_key = '_key' in kwargs.get('meta', {})
