@@ -254,6 +254,7 @@ class CollectionScanner(object):
 
     def close(self):
         log.info("Total scanned: %d" % self.__scanned_count)
+        self.hsc.close()
 
     def scan_prefixes(self, codelen):
         """
