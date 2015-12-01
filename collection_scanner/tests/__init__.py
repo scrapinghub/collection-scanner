@@ -21,7 +21,7 @@ class FakeCollection(object):
 
     def _must_issue_record(self, key, **kwargs):
         prefix = kwargs.get('prefix')
-        retval = True if prefix is None else key.startswith(tuple(prefix))
+        retval = prefix is None or key.startswith(tuple(prefix))
         startafter = kwargs.get('startafter') or ''
         if isinstance(startafter, list):
             startafter = startafter[0]

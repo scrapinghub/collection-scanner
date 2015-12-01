@@ -182,7 +182,7 @@ class CollectionScanner(object):
         while max_next_records:
             count = 0
             for r in collection.get(count=[max_next_records], startafter=[startafter], meta={'_key'},
-                                    prefix='%s_' % item_key):
+                                    prefix=['%s_' % item_key]):
                 count += 1
                 startafter = r['_key']
                 del r['_key']
@@ -232,7 +232,7 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or r['_key'] > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                for prop, many_column in self.has_many.iteritems():
+                for prop, many_column in self.has_many.items():
                     sub_items = self.get_additional_column_data(many_column, r['_key'])
                     if sub_items:
                         if r.get(prop):
