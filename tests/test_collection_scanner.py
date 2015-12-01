@@ -13,6 +13,7 @@ class BaseCollectionScannerTest(TestCase):
         'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)],
         'test_many_collections': [('AD%.3d_%d' % (i, j), {'field3': 'value 1-%.3d_%d' % (i, j)}) for i in range(1000) for j in range(3)]
     }
+
     scanner_class = CollectionScanner
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
         client_mock.return_value = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
@@ -101,7 +102,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
                     self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD399', 'AD799'],
                     startafter='AD8', meta=['_key'], batchsize=100)
         self.assertEqual(len(keys), 400)
-        self.assertEqual(batch_count, 5)
+        self.assertEqual(batch_count, 4)
         self.assertEqual(records[0]['_key'], 'AD100')
         self.assertEqual(records[100]['_key'], 'AD400')
         self.assertEqual(records[200]['_key'], 'AD800')
@@ -112,7 +113,57 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         scanner, records, keys, batch_count = \
                     self._get_scanner_records(client_mock, collection_name='test', meta=['_key'], batchsize=100, return_less=20)
         self.assertEqual(len(keys), 1000)
-        self.assertEqual(batch_count, 1)
+        self.assertEqual(batch_count, 10)
+
+
+@patch('hubstorage.HubstorageClient', autospec=True)
+class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
+    samples = {}
+    for partition in range(4):
+        samples['testp_%d' % partition] = []
+    for i in range(4000):
+        partition = i % 4
+        samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
+
+    def test_partitioned(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4)
+        self.assertEqual(batch_count, 40)
+        self.assertEqual(len(records), 4000)
+        self.assertEqual(len(keys), 4000)
+
+    def test_partitioned_startafter(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    startafter='AD2499')
+        self.assertEqual(batch_count, 15)
+        self.assertEqual(len(records), 1500)
+        self.assertEqual(len(keys), 1500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD2500')
+        self.assertEqual(records[-1]['_key'], 'AD3999')
+
+    def test_partitioned_stopbefore(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    stopbefore='AD2500')
+        self.assertEqual(batch_count, 25)
+        self.assertEqual(len(records), 2500)
+        self.assertEqual(len(keys), 2500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD0000')
+        self.assertEqual(records[-1]['_key'], 'AD2499')
+
+    def test_partitioned_count(self, client_mock):
+        scanner, records, keys, batch_count = \
+                    self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100, num_partitions=4,
+                    startafter='AD2199', count=500)
+        self.assertEqual(batch_count, 5)
+        self.assertEqual(len(records), 500)
+        self.assertEqual(len(keys), 500)
+        self.assertEqual(sorted(keys), [r['_key'] for r in records])
+        self.assertEqual(records[0]['_key'], 'AD2200')
+        self.assertEqual(records[-1]['_key'], 'AD2699')
 
 
 @patch('hubstorage.HubstorageClient', autospec=True)

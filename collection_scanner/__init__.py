@@ -29,16 +29,56 @@ from .utils import retry_on_exception
 __all__ = ['CollectionScanner']
 
 
-DEFAULT_BATCHSIZE = 1000000
+DEFAULT_BATCHSIZE = 10000
 LIMIT_KEY_CHAR = '~'
 
 
 log = logging.getLogger(__name__)
 
 
-@retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
-def _read_from_collection(collection, **kwargs):
-    return collection.get(**kwargs)
+class _CollectionWrapper(object):
+    def __init__(self, hsp, colname, partitions=None):
+        self.hsp = hsp
+        self.colname = colname
+        self.collections = []
+
+        if not partitions:
+            self.collections.append(hsp.collections.new_store(colname))
+        else:
+            for p in range(partitions):
+                self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
+
+    def get(self, **kwargs):
+        cache = {}
+        initial_count = total_count = kwargs.pop('count')[0] # must always be used with count parameter
+        initial_startafter = kwargs.pop('startafter', None)
+        collections = list(self.collections)
+        startafter = {col.colname: initial_startafter for col in collections}
+        while collections and total_count > 0:
+            count = total_count / len(collections) + 10 * len(collections)
+            for col in list(collections):
+                retrieved = 0
+                data = True
+                while data and retrieved < count:
+                    data = False
+                    for record in self._read_from_collection(col, count=[count - retrieved], startafter=startafter[col.colname], **kwargs):
+                        data = True
+                        retrieved += 1
+                        total_count -= 1
+                        cache[record['_key']] = record
+                        startafter[col.colname] = record['_key']
+                    if not data:
+                        collections.remove(col)
+        returned = 0
+        for key in sorted(cache.keys()):
+            yield cache.pop(key)
+            returned += 1
+            if returned == initial_count:
+                return
+
+    @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
+    def _read_from_collection(self, collection, **kwargs):
+        return collection.get(**kwargs)
 
 
 class CollectionScanner(object):
@@ -56,7 +96,7 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                  max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
-                 has_many_collections=None, **kwargs):
+                 has_many_collections=None, num_partitions=None,  **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -71,6 +111,7 @@ class CollectionScanner(object):
         secondary_collections - a list of secondary collections that updates the class default one.
         has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
                                items that will be added to 'property_name' property (a list)
+        num_partitions - An integer. If provided, the collection is partitioned among the given number of partitions.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -79,7 +120,7 @@ class CollectionScanner(object):
         """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
-        self.col = self.hsp.collections.new_store(collection_name)
+        self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
@@ -87,10 +128,10 @@ class CollectionScanner(object):
         self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
-        self.secondary = [self.hsp.collections.new_store(name) for name in self.secondary_collections]
+        self.secondary = [_CollectionWrapper(self.hsp, name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.has_many_collections.update(has_many_collections or {})
-        self.has_many = {prop: self.hsp.collections.new_store(col) for prop, col in self.has_many_collections.items()}
+        self.has_many = {prop: _CollectionWrapper(self.hsp, col) for prop, col in self.has_many_collections.items()}
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
         self.__enabled = True
@@ -119,7 +160,7 @@ class CollectionScanner(object):
             if not self.__secondary_is_empty[col.colname]:
                 count = 0
                 try:
-                    for r in _read_from_collection(col, count=[self.__max_next_records], start=start, meta=meta):
+                    for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key')
                         ts = r.pop('_ts')
@@ -128,10 +169,30 @@ class CollectionScanner(object):
                             secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
-                if not count:
+                if count < self.__max_next_records:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
+
+    def get_additional_column_data(self, collection, item_key):
+        additional_column_data = []
+        batchcount = self.__batchsize
+        max_next_records = self._get_max_next_records(batchcount)
+        startafter = 0
+        while max_next_records:
+            count = 0
+            for r in collection.get(count=[max_next_records], startafter=[startafter], meta={'_key'},
+                                    prefix='%s_' % item_key):
+                count += 1
+                startafter = r['_key']
+                del r['_key']
+                additional_column_data.append(r)
+
+            if count <= max_next_records:
+                break
+            max_next_records = self._get_max_next_records(batchcount)
+        return additional_column_data
+
 
     def convert_ts(self, timestamp):
         """
@@ -156,7 +217,7 @@ class CollectionScanner(object):
         while max_next_records and self.__enabled:
             count = 0
             jump_prefix = False
-            for r in _read_from_collection(self.col, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
+            for r in self.col.get(count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
                     self.__enabled = False
                     break
@@ -171,13 +232,13 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or r['_key'] > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                for prop, has_many_col in self.has_many.iteritems():
-                    sub_items = _read_from_collection(has_many_col, prefix='%s_' % r['_key'])
+                for prop, many_column in self.has_many.iteritems():
+                    sub_items = self.get_additional_column_data(many_column, r['_key'])
                     if sub_items:
                         if r.get(prop):
                             log.error("Items of has-many relationship can't be assigned to property %s, it's already defined on item %s")
                         else:
-                            r[prop] = list(sub_items)
+                            r[prop] = sub_items
                 if r['_key'] in secondary_data:
                     ts = secondary_data[r['_key']]['_ts']
                     r.update(secondary_data[r['_key']])
@@ -195,7 +256,7 @@ class CollectionScanner(object):
                 if self.__scanned_count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
+            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
             max_next_records = self._get_max_next_records(batchcount)
 
     def _get_max_next_records(self, batchcount):
@@ -206,7 +267,9 @@ class CollectionScanner(object):
 
     def scan_collection_batches(self):
         while self.__enabled:
-            yield self.get_new_batch()
+            batch = list(self.get_new_batch())
+            if batch:
+                yield batch
 
     def close(self):
         log.info("Total scanned: %d" % self.__scanned_count)
@@ -219,7 +282,7 @@ class CollectionScanner(object):
         lastkey = self.__startafter
         while data:
             data = False
-            for r in _read_from_collection(self.col, nodata=1, meta=['_key'], startafter=lastkey, count=1):
+            for r in self.col.get(nodata=1, meta=['_key'], startafter=lastkey, count=1):
                 data = True
                 code = r['_key'][:codelen]
                 lastkey = code + LIMIT_KEY_CHAR
