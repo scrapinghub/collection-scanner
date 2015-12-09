@@ -184,8 +184,7 @@ class CollectionScanner(object):
             for r in collection.get(count=[max_next_records], startafter=[startafter], meta={'_key'},
                                     prefix=['%s_' % item_key]):
                 count += 1
-                startafter = r['_key']
-                del r['_key']
+                startafter = r.pop('_key')
                 additional_column_data.append(r)
 
             if count <= max_next_records:
