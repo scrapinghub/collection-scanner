@@ -15,6 +15,7 @@ Before getting a new batch you can set a new startafter value with set_startafte
 
 """
 import time
+import re
 from dateutil import parser
 import logging
 from collections import defaultdict
@@ -108,7 +109,7 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                 max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
-                num_partitions=None, **kwargs):
+                autodetect_partitions=True, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -121,7 +122,8 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
-        num_partitions - An integer. If provided, the collection is partitioned among the given number of partitions.
+        autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
+                collection when partitioned version also exists, use value False.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -130,6 +132,21 @@ class CollectionScanner(object):
         """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
+
+        num_partitions = None
+        if autodetect_partitions:
+            partitions = []
+            partitions_re = re.compile(r'%s_(\d+)' % collection_name)
+            for entry in self.hsp.collections.apiget('list'):
+                m = partitions_re.match(entry['name'])
+                if m:
+                    partitions.append(int(m.groups()[0]))
+            if partitions:
+                if len(partitions) == max(partitions) + 1:
+                    num_partitions = len(partitions)
+                else:
+                    raise ValueError('Collection seems to be partitioned but not all partitions are available.')
+
         self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
