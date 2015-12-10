@@ -144,6 +144,7 @@ class CollectionScanner(object):
             if partitions:
                 if len(partitions) == max(partitions) + 1:
                     num_partitions = len(partitions)
+                    log.info("Partitioned collection detected: %d total partitions.", num_partitions)
                 else:
                     raise ValueError('Collection seems to be partitioned but not all partitions are available.')
 
