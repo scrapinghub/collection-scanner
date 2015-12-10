@@ -166,6 +166,20 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
 
 
 @patch('hubstorage.HubstorageClient', autospec=True)
+class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
+    samples = {}
+    for partition in [1,2,3]:
+        samples['testp_%d' % partition] = []
+    for i in range(4000):
+        partition = i % 4
+        if partition != 0:
+            samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
+
+    def test_partitioned(self, client_mock):
+        self.assertRaises(ValueError, self._get_scanner_records, client_mock, collection_name='testp', meta=['_key'], batchsize=100)
+
+
+@patch('hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
     class MyCollectionScanner(CollectionScanner):
         secondary_collections = ['test2']
