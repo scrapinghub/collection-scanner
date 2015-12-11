@@ -15,6 +15,7 @@ Before getting a new batch you can set a new startafter value with set_startafte
 
 """
 import time
+import re
 from dateutil import parser
 import logging
 from collections import defaultdict
@@ -39,6 +40,7 @@ class _CollectionWrapper(object):
         self.hsp = hsp
         self.colname = colname
         self.collections = []
+        self.cache = {}
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -47,30 +49,42 @@ class _CollectionWrapper(object):
                 self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
     def get(self, **kwargs):
-        cache = {}
         initial_count = total_count = kwargs.pop('count')[0]  # must always be used with count parameter
-        initial_startafter = kwargs.pop('startafter', None)
+        requested_startafter = initial_startafter = kwargs.pop('startafter', None)
+        if isinstance(requested_startafter, list):
+            requested_startafter = initial_startafter = requested_startafter[0]
+
+        if requested_startafter == None:
+            self.cache = {}
+        if self.cache:
+            initial_startafter = max(requested_startafter, sorted(self.cache.keys())[-1])
+
         collections = list(self.collections)
-        startafter = {col.colname: initial_startafter for col in collections}
+        startafter = {col.colname: [initial_startafter] for col in collections}
         while collections and total_count > 0:
-            count = total_count / len(collections) + 10 * len(collections)
-            for col in list(collections):
-                retrieved = 0
-                data = True
-                while data and retrieved < count:
-                    data = False
-                    for record in self._read_from_collection(col, count=[count - retrieved],
-                                                             startafter=startafter[col.colname], **kwargs):
-                        data = True
-                        retrieved += 1
-                        total_count -= 1
-                        cache[record['_key']] = record
-                        startafter[col.colname] = record['_key']
-                    if not data:
-                        collections.remove(col)
+            num_partitions = len(collections)
+            count = (total_count - len(self.cache)) / num_partitions + 10 * num_partitions
+            if count > 0:
+                for col in list(collections):
+                    retrieved = 0
+                    data = True
+                    while data and retrieved < count:
+                        data = False
+                        for record in self._read_from_collection(col, count=[count - retrieved],
+                                                                 startafter=startafter[col.colname], **kwargs):
+                            data = True
+                            retrieved += 1
+                            total_count -= 1
+                            self.cache[record['_key']] = record
+                            startafter[col.colname] = record['_key']
+                        if not data:
+                            collections.remove(col)
         returned = 0
-        for key in sorted(cache.keys()):
-            yield cache.pop(key)
+        for key in sorted(self.cache.keys()):
+            record = self.cache.pop(key)
+            if requested_startafter and key <= requested_startafter:
+                continue
+            yield record
             returned += 1
             if returned == initial_count:
                 return
@@ -95,8 +109,8 @@ class CollectionScanner(object):
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                  max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None,
-                 secondary_collections=None,
-                 has_many_collections=None, num_partitions=None, **kwargs):
+                 secondary_collections=None, has_many_collections=None,
+                 autodetect_partitions=True, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -111,7 +125,8 @@ class CollectionScanner(object):
         secondary_collections - a list of secondary collections that updates the class default one.
         has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
                                items that will be added to 'property_name' property (a list)
-        num_partitions - An integer. If provided, the collection is partitioned among the given number of partitions.
+        autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
+                collection when partitioned version also exists, use value False.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -120,6 +135,22 @@ class CollectionScanner(object):
         """
         self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
         self.hsp = self.hsc.get_project(project_id)
+
+        num_partitions = None
+        if autodetect_partitions:
+            partitions = []
+            partitions_re = re.compile(r'%s_(\d+)' % collection_name)
+            for entry in self.hsp.collections.apiget('list'):
+                m = partitions_re.match(entry['name'])
+                if m:
+                    partitions.append(int(m.groups()[0]))
+            if partitions:
+                if len(partitions) == max(partitions) + 1:
+                    num_partitions = len(partitions)
+                    log.info("Partitioned collection detected: %d total partitions.", num_partitions)
+                else:
+                    raise ValueError('Collection seems to be partitioned but not all partitions are available.')
+
         self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
@@ -290,6 +321,7 @@ class CollectionScanner(object):
 
     def close(self):
         log.info("Total scanned: %d" % self.__scanned_count)
+        self.hsc.close()
 
     def scan_prefixes(self, codelen):
         """

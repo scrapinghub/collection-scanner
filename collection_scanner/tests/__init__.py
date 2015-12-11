@@ -53,9 +53,15 @@ class FakeCollections(object):
     def __init__(self, project, **kwargs):
         self.project = project
         self.kwargs = kwargs
+        self.collection_list = [{'name': n, 'type': 's'} for n in self.project.client.samples.keys()]
 
     def new_store(self, name):
         return FakeCollection(name, self.project.client.samples[name], **self.kwargs)
+
+    def apiget(self, call):
+        if call == 'list':
+            return self.collection_list
+        raise NotImplementedError('Not supported in FakeCollections')
 
 class FakeProject(object):
     def __init__(self, client, **kwargs):
