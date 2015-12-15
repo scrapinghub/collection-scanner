@@ -61,11 +61,19 @@ class _CollectionWrapper(object):
 
         if requested_startafter == None:
             self.cache = []
-        if self.cache:
-            initial_startafter = max(requested_startafter, self.cache[-1][0])
+        else:
+            index = 0
+            for key, _ in self.cache:
+                if key > requested_startafter:
+                    self.cache = self.cache[index:]
+                    break
+                index += 1
+
 
         cache = []
         if len(self.cache) < initial_count * len(self.collections):
+            if self.cache:
+                initial_startafter = max(requested_startafter, self.cache[-1][0])
             startafter = {col.colname: [initial_startafter] for col in self.collections}
             for col in self.collections:
                 data = True
@@ -79,7 +87,7 @@ class _CollectionWrapper(object):
                         startafter[col.colname] = [record['_key']]
         returned = 0
         cache = sorted(cache, key=itemgetter(0))
-        if not self.cache or cache and cache[0][0] <= self.cache[-1][0]:
+        if not self.cache:
             self.cache = cache
         else:
             while cache:
@@ -91,7 +99,9 @@ class _CollectionWrapper(object):
             yield record
             returned += 1
             if returned == initial_count:
+                self.cache.extend(cache)
                 return
+        self.cache.extend(cache)
 
     @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
     def _read_from_collection(self, collection, **kwargs):
