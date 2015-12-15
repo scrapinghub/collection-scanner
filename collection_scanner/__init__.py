@@ -39,7 +39,10 @@ LIMIT_KEY_CHAR = '~'
 log = logging.getLogger(__name__)
 
 
-class _CollectionWrapper(object):
+class _CachedBlocksCollection(object):
+    """
+    Gets blocks of records and cache them for fast future gets.
+    """
     def __init__(self, hsp, colname, partitions=None):
         self.hsp = hsp
         self.colname = colname
@@ -157,7 +160,7 @@ class CollectionScanner(object):
                 else:
                     raise ValueError('Collection seems to be partitioned but not all partitions are available.')
 
-        self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
+        self.col = _CachedBlocksCollection(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
@@ -165,7 +168,7 @@ class CollectionScanner(object):
         self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
-        self.secondary = [_CollectionWrapper(self.hsp, name) for name in self.secondary_collections]
+        self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
