@@ -19,6 +19,8 @@ import re
 from dateutil import parser
 import logging
 from collections import defaultdict
+import resource
+from operator import itemgetter
 
 from retrying import retry
 
@@ -35,12 +37,15 @@ LIMIT_KEY_CHAR = '~'
 log = logging.getLogger(__name__)
 
 
-class _CollectionWrapper(object):
+class _CachedBlocksCollection(object):
+    """
+    Gets blocks of records and cache them for fast future gets.
+    """
     def __init__(self, hsp, colname, partitions=None):
         self.hsp = hsp
         self.colname = colname
         self.collections = []
-        self.cache = {}
+        self.cache = []
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -49,41 +54,47 @@ class _CollectionWrapper(object):
                 self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
     def get(self, **kwargs):
-        initial_count = total_count = kwargs.pop('count')[0]  # must always be used with count parameter
+        initial_count = kwargs.pop('count')[0] # must always be used with count parameter
+        assert initial_count
         requested_startafter = initial_startafter = kwargs.pop('startafter', None)
         if isinstance(requested_startafter, list):
             requested_startafter = initial_startafter = requested_startafter[0]
 
         if requested_startafter == None:
-            self.cache = {}
-        if self.cache:
-            initial_startafter = max(requested_startafter, sorted(self.cache.keys())[-1])
+            self.cache = []
+        else:
+            index = 0
+            for key, _ in self.cache:
+                if key > requested_startafter:
+                    self.cache = self.cache[index:]
+                    break
+                index += 1
 
-        collections = list(self.collections)
-        startafter = {col.colname: [initial_startafter] for col in collections}
-        while collections and total_count > 0:
-            num_partitions = len(collections)
-            count = (total_count - len(self.cache)) / num_partitions + 10 * num_partitions
-            if count > 0:
-                for col in list(collections):
-                    retrieved = 0
-                    data = True
-                    while data and retrieved < count:
-                        data = False
-                        for record in self._read_from_collection(col, count=[count - retrieved],
-                                                                 startafter=startafter[col.colname], **kwargs):
-                            data = True
-                            retrieved += 1
-                            total_count -= 1
-                            self.cache[record['_key']] = record
-                            startafter[col.colname] = record['_key']
-                        if not data:
-                            collections.remove(col)
+
+        cache = []
+        if len(self.cache) < initial_count * len(self.collections):
+            if self.cache:
+                initial_startafter = max(requested_startafter, self.cache[-1][0])
+            startafter = {col.colname: [initial_startafter] for col in self.collections}
+            for col in self.collections:
+                data = True
+                count = 0
+                while data and count < initial_count:
+                    data = False
+                    for record in self._read_from_collection(col, count=[initial_count - count], startafter=startafter[col.colname], **kwargs):
+                        count += 1
+                        data = True
+                        cache.append((record['_key'], record))
+                        startafter[col.colname] = [record['_key']]
         returned = 0
-        for key in sorted(self.cache.keys()):
-            record = self.cache.pop(key)
-            if requested_startafter and key <= requested_startafter:
-                continue
+        cache = sorted(cache, key=itemgetter(0))
+        if not self.cache:
+            self.cache = cache
+        else:
+            while cache:
+                self.cache.append(cache.pop(0))
+        while self.cache:
+            key, record = self.cache.pop(0)
             yield record
             returned += 1
             if returned == initial_count:
@@ -151,7 +162,7 @@ class CollectionScanner(object):
                 else:
                     raise ValueError('Collection seems to be partitioned but not all partitions are available.')
 
-        self.col = _CollectionWrapper(self.hsp, collection_name, num_partitions)
+        self.col = _CachedBlocksCollection(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
         self.__totalcount = count
         self.lastkey = None
@@ -159,10 +170,10 @@ class CollectionScanner(object):
         self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
-        self.secondary = [_CollectionWrapper(self.hsp, name) for name in self.secondary_collections]
+        self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
         self.has_many_collections.update(has_many_collections or {})
-        self.has_many = {prop: _CollectionWrapper(self.hsp, col) for prop, col in self.has_many_collections.items()}
+        self.has_many = {prop: _CachedBlocksCollection(self.hsp, col) for prop, col in self.has_many_collections.items()}
         self.__has_many_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
@@ -274,9 +285,10 @@ class CollectionScanner(object):
                     additional_data.update(additional_data_temp)
                     if not any([not self.__has_many_is_empty[key] for key in self.has_many]):
                         break
-                if r['_key'] in secondary_data:
-                    ts = secondary_data[r['_key']]['_ts']
-                    r.update(secondary_data[r['_key']])
+                srecord = secondary_data.pop(r['_key'], None)
+                if srecord is not None:
+                    ts = srecord['_ts']
+                    r.update(srecord)
                     if ts > r['_ts']:
                         r['_ts'] = ts
                 if r['_key'] in additional_data:
