@@ -19,6 +19,8 @@ import re
 from dateutil import parser
 import logging
 from collections import defaultdict
+import resource
+from operator import itemgetter
 
 from retrying import retry
 
@@ -42,7 +44,7 @@ class _CollectionWrapper(object):
         self.hsp = hsp
         self.colname = colname
         self.collections = []
-        self.cache = {}
+        self.cache = []
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -51,38 +53,39 @@ class _CollectionWrapper(object):
                 self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
     def get(self, **kwargs):
-        initial_count = total_count = kwargs.pop('count')[0] # must always be used with count parameter
+        initial_count = kwargs.pop('count')[0] # must always be used with count parameter
+        assert initial_count
         requested_startafter = initial_startafter = kwargs.pop('startafter', None)
         if isinstance(requested_startafter, list):
             requested_startafter = initial_startafter = requested_startafter[0]
 
         if requested_startafter == None:
-            self.cache = {}
+            self.cache = []
         if self.cache:
-            initial_startafter = max(requested_startafter, sorted(self.cache.keys())[-1])
+            initial_startafter = max(requested_startafter, self.cache[-1][0])
 
-        collections = list(self.collections)
-        startafter = {col.colname: [initial_startafter] for col in collections}
-        while collections and total_count > 0:
-            num_partitions = len(collections)
-            count = (total_count - len(self.cache)) / num_partitions + 10 * num_partitions
-            if count > 0:
-                for col in list(collections):
-                    retrieved = 0
-                    data = True
-                    while data and retrieved < count:
-                        data = False
-                        for record in self._read_from_collection(col, count=[count - retrieved], startafter=startafter[col.colname], **kwargs):
-                            data = True
-                            retrieved += 1
-                            total_count -= 1
-                            self.cache[record['_key']] = record
-                            startafter[col.colname] = record['_key']
-                        if not data:
-                            collections.remove(col)
+        cache = []
+        if len(self.cache) < initial_count * len(self.collections):
+            startafter = {col.colname: [initial_startafter] for col in self.collections}
+            for col in self.collections:
+                data = True
+                count = 0
+                while data and count < initial_count:
+                    data = False
+                    for record in self._read_from_collection(col, count=[initial_count - count], startafter=startafter[col.colname], **kwargs):
+                        count += 1
+                        data = True
+                        cache.append((record['_key'], record))
+                        startafter[col.colname] = [record['_key']]
         returned = 0
-        for key in sorted(self.cache.keys()):
-            record = self.cache.pop(key)
+        cache = sorted(cache, key=itemgetter(0))
+        if not self.cache or cache and cache[0][0] <= self.cache[-1][0]:
+            self.cache = cache
+        else:
+            while cache:
+                self.cache.append(cache.pop(0))
+        while self.cache:
+            key, record = self.cache.pop(0)
             if requested_startafter and key <= requested_startafter:
                 continue
             yield record
