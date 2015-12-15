@@ -53,6 +53,7 @@ class _CollectionWrapper(object):
                 self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
     def get(self, **kwargs):
+        log.info('%s %s', self.colname, '1')
         initial_count = kwargs.pop('count')[0] # must always be used with count parameter
         assert initial_count
         requested_startafter = initial_startafter = kwargs.pop('startafter', None)
@@ -72,19 +73,23 @@ class _CollectionWrapper(object):
 
         cache = []
         if len(self.cache) < initial_count * len(self.collections):
+            log.info('%s %s', self.colname, '2')
             if self.cache:
                 initial_startafter = max(requested_startafter, self.cache[-1][0])
             startafter = {col.colname: [initial_startafter] for col in self.collections}
             for col in self.collections:
+                log.info('%s %s', self.colname, '3')
                 data = True
                 count = 0
                 while data and count < initial_count:
+                    log.info('%s %s', self.colname, '4')
                     data = False
                     for record in self._read_from_collection(col, count=[initial_count - count], startafter=startafter[col.colname], **kwargs):
                         count += 1
                         data = True
                         cache.append((record['_key'], record))
                         startafter[col.colname] = [record['_key']]
+                    log.info('%s %s', self.colname, '5')
         returned = 0
         cache = sorted(cache, key=itemgetter(0))
         if not self.cache:
@@ -94,14 +99,10 @@ class _CollectionWrapper(object):
                 self.cache.append(cache.pop(0))
         while self.cache:
             key, record = self.cache.pop(0)
-            if requested_startafter and key <= requested_startafter:
-                continue
             yield record
             returned += 1
             if returned == initial_count:
-                self.cache.extend(cache)
                 return
-        self.cache.extend(cache)
 
     @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
     def _read_from_collection(self, collection, **kwargs):
@@ -282,6 +283,7 @@ class CollectionScanner(object):
             batch = list(self.get_new_batch())
             if batch:
                 yield batch
+                log.info('6')
 
     def close(self):
         log.info("Total scanned: %d" % self.__scanned_count)
