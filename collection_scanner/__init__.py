@@ -250,9 +250,10 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or r['_key'] > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                if r['_key'] in secondary_data:
-                    ts = secondary_data[r['_key']]['_ts']
-                    r.update(secondary_data[r['_key']])
+                srecord = secondary_data.pop(r['_key'], None)
+                if srecord is not None:
+                    ts = srecord['_ts']
+                    r.update(srecord)
                     if ts > r['_ts']:
                         r['_ts'] = ts
                 if self.__endts and r['_ts'] > self.__endts:
