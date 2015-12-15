@@ -277,14 +277,12 @@ class CollectionScanner(object):
                 if jump_prefix:
                     break
                 self.__startafter = self.lastkey = r['_key']
-                if last_secondary_key is None or r['_key'] > last_secondary_key:
+                if last_secondary_key is None or self.__startafter > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                while last_additional_key is None or r['_key'] > last_additional_key:
+                if last_additional_key is None or self.__startafter > last_additional_key:
                     last_additional_key, additional_data_temp = self.get_additional_column_data(start=self.__startafter,
                                                                                                 meta=meta)
                     additional_data.update(additional_data_temp)
-                    if not any([not self.__has_many_is_empty[key] for key in self.has_many]):
-                        break
                 srecord = secondary_data.pop(r['_key'], None)
                 if srecord is not None:
                     ts = srecord['_ts']
