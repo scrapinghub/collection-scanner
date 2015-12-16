@@ -31,10 +31,8 @@ from .utils import retry_on_exception
 
 __all__ = ['CollectionScanner']
 
-
 DEFAULT_BATCHSIZE = 10000
 LIMIT_KEY_CHAR = '~'
-
 
 log = logging.getLogger(__name__)
 
@@ -118,10 +116,12 @@ class CollectionScanner(object):
     # are always a subset of key set of principal.
     # TODO: logic does not work with startts
     secondary_collections = []
+    has_many_collections = {}
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None, secondary_collections=None,
-                autodetect_partitions=True, **kwargs):
+                 max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None,
+                 secondary_collections=None, has_many_collections=None,
+                 autodetect_partitions=True, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
         project_id - target project id
@@ -134,6 +134,8 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
+        has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
+                               items that will be added to 'property_name' property (a list)
         autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
                 collection when partitioned version also exists, use value False.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
@@ -170,6 +172,9 @@ class CollectionScanner(object):
         self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in self.secondary_collections]
         self.__secondary_is_empty = defaultdict(bool)
+        self.has_many_collections.update(has_many_collections or {})
+        self.has_many = {prop: _CachedBlocksCollection(self.hsp, col) for prop, col in self.has_many_collections.items()}
+        self.__has_many_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
         self.__enabled = True
@@ -212,6 +217,28 @@ class CollectionScanner(object):
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
 
+    def get_additional_column_data(self, start, meta):
+        secondary_data = defaultdict(dict)
+        last = None
+        for prop, col in self.has_many.items():
+            if not self.__has_many_is_empty[prop]:
+                count = 0
+                try:
+                    for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
+                        count += 1
+                        last = key = r.pop('_key').split("_")[0]
+                        ts = r.pop('_ts')
+                        secondary_data[key][prop] = [r] if prop not in secondary_data[key] else secondary_data[key][
+                                                                                                    prop] + [r]
+                        if '_ts' not in secondary_data[key] or ts > secondary_data[key]['_ts']:
+                            secondary_data[key]['_ts'] = ts
+                except KeyError:
+                    pass
+                if count < self.__max_next_records:
+                    self.__has_many_is_empty[prop] = True
+                    log.info('Additional collection {} is depleted'.format(prop))
+        return last, dict(secondary_data)
+
     def convert_ts(self, timestamp):
         """
         Read a timestamp in diverse formats and return milisecs epoch
@@ -230,6 +257,8 @@ class CollectionScanner(object):
         original_meta = kwargs.pop('meta', [])
         meta = {'_key', '_ts'}.union(original_meta)
         last_secondary_key = None
+        last_additional_key = None
+        additional_data = {}
         batchcount = self.__batchsize
         max_next_records = self._get_max_next_records(batchcount)
         while max_next_records and self.__enabled:
@@ -248,14 +277,30 @@ class CollectionScanner(object):
                 if jump_prefix:
                     break
                 self.__startafter = self.lastkey = r['_key']
-                if last_secondary_key is None or r['_key'] > last_secondary_key:
+                if last_secondary_key is None or self.__startafter > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
+                if last_additional_key is None or self.__startafter > last_additional_key:
+                    last_additional_key, additional_data_temp = self.get_additional_column_data(start=self.__startafter,
+                                                                                                meta=meta)
+                    additional_data.update(additional_data_temp)
                 srecord = secondary_data.pop(r['_key'], None)
                 if srecord is not None:
                     ts = srecord['_ts']
                     r.update(srecord)
                     if ts > r['_ts']:
                         r['_ts'] = ts
+                if r['_key'] in additional_data:
+                    ts = additional_data[r['_key']]['_ts']
+                    for prop, data in additional_data[r['_key']].items():
+                        if r.get(prop):
+                            log.error(
+                                "Items of has-many relationship can't be assigned to property %s, it's already defined on item %s")
+                        else:
+                            r[prop] = data
+                    if ts > r['_ts']:
+                        r['_ts'] = ts
+                    del additional_data[r['_key']]
+
                 if self.__endts and r['_ts'] > self.__endts:
                     continue
 
@@ -268,7 +313,8 @@ class CollectionScanner(object):
                 if self.__scanned_count % 10000 == 0:
                     log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
                 yield r
-            self.__enabled = count >= max_next_records and (not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
+            self.__enabled = count >= max_next_records and (
+                not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
             max_next_records = self._get_max_next_records(batchcount)
 
     def _get_max_next_records(self, batchcount):
