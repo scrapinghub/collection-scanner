@@ -26,7 +26,7 @@ from retrying import retry
 
 import hubstorage
 
-from .utils import retry_on_exception
+from .utils import retry_on_exception, get_num_partitions
 
 
 __all__ = ['CollectionScanner']
@@ -137,7 +137,7 @@ class CollectionScanner(object):
         has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
                                items that will be added to 'property_name' property (a list)
         autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
-                collection when partitioned version also exists, use value False.
+                collection when partitioned version also exists under the same name, use False.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
                 - prefix (list of key prefixes to include in the scan)
                 - startts and endts, either in epoch millisecs (as accepted by hubstorage) or a date string (support is added here)
@@ -149,18 +149,9 @@ class CollectionScanner(object):
 
         num_partitions = None
         if autodetect_partitions:
-            partitions = []
-            partitions_re = re.compile(r'%s_(\d+)' % collection_name)
-            for entry in self.hsp.collections.apiget('list'):
-                m = partitions_re.match(entry['name'])
-                if m:
-                    partitions.append(int(m.groups()[0]))
-            if partitions:
-                if len(partitions) == max(partitions) + 1:
-                    num_partitions = len(partitions)
-                    log.info("Partitioned collection detected: %d total partitions.", num_partitions)
-                else:
-                    raise ValueError('Collection seems to be partitioned but not all partitions are available.')
+            num_partitions = get_num_partitions(self.hsp, collection_name)
+            if num_partitions:
+                log.info("Partitioned collection detected: %d total partitions.", num_partitions)
 
         self.col = _CachedBlocksCollection(self.hsp, collection_name, num_partitions)
         self.__scanned_count = 0
