@@ -4,7 +4,7 @@ Allow to count on partitioned collections
 import logging
 import hubstorage
 import random
-from .utils import get_num_partitions
+from .utils import get_num_partitions, generate_prefixes
 
 __all__ = ['CollectionScanner']
 
@@ -52,3 +52,18 @@ class CollectionCounter(object):
         """
         col = random.choice(self.collections)
         return col.count(*args, **kwargs) * len(self.collections)
+
+    def get_prefixes(self, codelen, fast=True):
+        cols = [random.choice(self.collections)] if fast else self.collections
+        gens = [generate_prefixes(col, codelen) for col in cols]
+        prefixes = set()
+        while gens:
+            for g in list(gens):
+                try:
+                    prefix = next(g)
+                    if prefix not in prefixes:
+                        prefixes.add(prefix)
+                        yield prefix
+                except StopIteration:
+                    gens.remove(g)
+                    continue

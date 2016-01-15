@@ -26,13 +26,17 @@ from retrying import retry
 
 import hubstorage
 
-from .utils import retry_on_exception, get_num_partitions
+from .utils import (
+    retry_on_exception,
+    get_num_partitions,
+    generate_prefixes,
+    LIMIT_KEY_CHAR,
+)
 
 
 __all__ = ['CollectionScanner']
 
 DEFAULT_BATCHSIZE = 10000
-LIMIT_KEY_CHAR = '~'
 
 log = logging.getLogger(__name__)
 
@@ -328,15 +332,7 @@ class CollectionScanner(object):
         """
         Generates all prefixes up to the given length
         """
-        data = True
-        lastkey = self.__startafter
-        while data:
-            data = False
-            for r in self.col.get(nodata=1, meta=['_key'], startafter=lastkey, count=1):
-                data = True
-                code = r['_key'][:codelen]
-                lastkey = code + LIMIT_KEY_CHAR
-                yield code
+        return generate_prefixes(col, codelen, lastkey=self.__startafter)
 
     def set_startafter(self, startafter):
         self.__startafter = startafter

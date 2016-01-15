@@ -2,6 +2,9 @@ import re
 import traceback
 
 
+LIMIT_KEY_CHAR = '~'
+
+
 def retry_on_exception(exception):
     print "Retried: {}".format(traceback.format_exc())
     return not isinstance(exception, KeyboardInterrupt)
@@ -20,3 +23,14 @@ def get_num_partitions(hsp, collection_name):
             return len(partitions)
         else:
             raise ValueError('Collection seems to be partitioned but not all partitions are available.')
+
+def generate_prefixes(col, codelen, lastkey=None):
+    data = True
+    while data:
+        data = False
+        for r in col.get(nodata=1, meta=['_key'], startafter=lastkey, count=1):
+            data = True
+            code = r['_key'][:codelen]
+            lastkey = code + LIMIT_KEY_CHAR
+            yield code
+
