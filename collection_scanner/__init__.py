@@ -1,2 +1,2 @@
-from .scanner import CollectionScanner
+from .scanner import CollectionScanner, DEFAULT_BATCHSIZE
 from .counter import CollectionCounter
