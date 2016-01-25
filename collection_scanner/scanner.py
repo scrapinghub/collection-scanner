@@ -326,12 +326,6 @@ class CollectionScanner(object):
         log.info("Total scanned: %d" % self.__scanned_count)
         self.hsc.close()
 
-    def scan_prefixes(self, codelen):
-        """
-        Generates all prefixes up to the given length
-        """
-        return generate_prefixes(self.col, codelen, startafter=self.__startafter)
-
     def set_startafter(self, startafter):
         self.__startafter = startafter
 
