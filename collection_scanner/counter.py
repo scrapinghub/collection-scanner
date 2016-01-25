@@ -53,9 +53,9 @@ class CollectionCounter(object):
         col = random.choice(self.collections)
         return col.count(*args, **kwargs) * len(self.collections)
 
-    def get_prefixes(self, codelen, fast=True):
+    def get_prefixes(self, codelen, fast=True, **kwargs):
         cols = [random.choice(self.collections)] if fast else self.collections
-        gens = [generate_prefixes(col, codelen) for col in cols]
+        gens = [generate_prefixes(col, codelen, **kwargs) for col in cols]
         prefixes = set()
         while gens:
             for g in list(gens):

@@ -15,11 +15,9 @@ Before getting a new batch you can set a new startafter value with set_startafte
 
 """
 import time
-import re
 from dateutil import parser
 import logging
 from collections import defaultdict
-import resource
 from operator import itemgetter
 
 from retrying import retry
@@ -332,7 +330,7 @@ class CollectionScanner(object):
         """
         Generates all prefixes up to the given length
         """
-        return generate_prefixes(col, codelen, lastkey=self.__startafter)
+        return generate_prefixes(self.col, codelen, startafter=self.__startafter)
 
     def set_startafter(self, startafter):
         self.__startafter = startafter
