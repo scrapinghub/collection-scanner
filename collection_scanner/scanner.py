@@ -15,6 +15,7 @@ Before getting a new batch you can set a new startafter value with set_startafte
 
 """
 import time
+import random
 from dateutil import parser
 import logging
 from collections import defaultdict
@@ -55,7 +56,11 @@ class _CachedBlocksCollection(object):
             for p in range(partitions):
                 self.collections.append(hsp.collections.new_store("{}_{}".format(colname, p)))
 
-    def get(self, **kwargs):
+    def get(self, random_mode=False, **kwargs):
+        """
+        if random_mode is True, disable features that are not needed for random scan which impairs efficiency.
+        """
+        collections = [random.choice(self.collections)] if random_mode else self.collections
         initial_count = kwargs.pop('count')[0] # must always be used with count parameter
         assert initial_count
         requested_startafter = initial_startafter = kwargs.pop('startafter', None)
@@ -72,13 +77,12 @@ class _CachedBlocksCollection(object):
                     break
                 index += 1
 
-
         cache = []
-        if len(self.cache) < initial_count * len(self.collections):
+        if len(self.cache) < initial_count * len(collections):
             if self.cache:
                 initial_startafter = max(requested_startafter, self.cache[-1][0])
-            startafter = {col.colname: [initial_startafter] for col in self.collections}
-            for col in self.collections:
+            startafter = {col.colname: [initial_startafter] for col in collections}
+            for col in collections:
                 data = True
                 count = 0
                 while data and count < initial_count:
@@ -242,7 +246,7 @@ class CollectionScanner(object):
             timestamp = self.str_to_msecs(timestamp)
         return timestamp
 
-    def get_new_batch(self):
+    def get_new_batch(self, random_mode=False):
         """
         Convenient way for scanning a collection in batches
         """
@@ -257,7 +261,7 @@ class CollectionScanner(object):
         while max_next_records and self.__enabled:
             count = 0
             jump_prefix = False
-            for r in self.col.get(count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
+            for r in self.col.get(random_mode, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
                 if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
                     self.__enabled = False
                     break
