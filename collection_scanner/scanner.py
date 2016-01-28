@@ -197,11 +197,12 @@ class CollectionScanner(object):
     def get_secondary_data(self, start, meta):
         secondary_data = defaultdict(dict)
         last = None
+        max_next_records = self._get_max_next_records(self.__batchsize)
         for col in self.secondary:
             if not self.__secondary_is_empty[col.colname]:
                 count = 0
                 try:
-                    for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
+                    for r in col.get(count=[max_next_records], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key')
                         ts = r.pop('_ts')
@@ -210,7 +211,7 @@ class CollectionScanner(object):
                             secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
-                if count < self.__max_next_records:
+                if count < max_next_records:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
