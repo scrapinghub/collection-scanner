@@ -24,6 +24,16 @@ def get_num_partitions(hsp, collection_name):
         else:
             raise ValueError('Collection seems to be partitioned but not all partitions are available.')
 
+def filter_collections_exist(hsp, collection_names):
+    """
+    Filters a list of collections to return only those that do exist
+    """
+    filtered = []
+    for entry in hsp.collections.apiget('list'):
+        if entry['name'] in collection_names:
+            filtered.append(entry['name'])
+    return filtered
+
 def generate_prefixes(col, codelen, startafter=None, **kwargs):
     data = True
     while data:

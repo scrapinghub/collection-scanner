@@ -189,7 +189,7 @@ class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
 @patch('hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
     class MyCollectionScanner(CollectionScanner):
-        secondary_collections = ['test2']
+        secondary_collections = ['test2', 'test3'] # test3 does not exist, must be filtered
 
     scanner_class = MyCollectionScanner
 

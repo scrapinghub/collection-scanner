@@ -29,6 +29,7 @@ from .utils import (
     retry_on_exception,
     get_num_partitions,
     generate_prefixes,
+    filter_collections_exist,
     LIMIT_KEY_CHAR,
 )
 
@@ -167,7 +168,7 @@ class CollectionScanner(object):
         self.__stopbefore = stopbefore
         self.__exclude_prefixes = exclude_prefixes or []
         self.secondary_collections.extend(secondary_collections or [])
-        self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in self.secondary_collections]
+        self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in filter_collections_exist(self.hsp, self.secondary_collections)]
         self.__secondary_is_empty = defaultdict(bool)
         self.has_many_collections.update(has_many_collections or {})
         self.has_many = {prop: _CachedBlocksCollection(self.hsp, col) for prop, col in self.has_many_collections.items()}
