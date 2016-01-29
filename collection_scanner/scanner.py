@@ -216,14 +216,15 @@ class CollectionScanner(object):
                     log.info('Secondary collection {} is depleted'.format(col.colname))
         return last, dict(secondary_data)
 
-    def get_additional_column_data(self, start, meta):
+    def get_additional_column_data(self, start):
         secondary_data = defaultdict(dict)
         last = None
+        max_next_records = self._get_max_next_records(self.__batchsize)
         for prop, col in self.has_many.items():
             if not self.__has_many_is_empty[prop]:
                 count = 0
                 try:
-                    for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
+                    for r in col.get(count=[max_next_records], start=start, meta=['_key']):
                         count += 1
                         last = key = r.pop('_key').split("_")[0]
                         secondary_data[key][prop] = [r] if prop not in secondary_data[key] else secondary_data[key][
@@ -276,8 +277,7 @@ class CollectionScanner(object):
                 if last_secondary_key is None or self.__startafter > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
                 if last_additional_key is None or self.__startafter > last_additional_key:
-                    last_additional_key, additional_data_temp = self.get_additional_column_data(start=self.__startafter,
-                                                                                                meta=meta)
+                    last_additional_key, additional_data_temp = self.get_additional_column_data(start=self.__startafter)
                     additional_data.update(additional_data_temp)
                 srecord = secondary_data.pop(r['_key'], None)
                 if srecord is not None:
@@ -286,15 +286,14 @@ class CollectionScanner(object):
                     if ts > r['_ts']:
                         r['_ts'] = ts
                 if r['_key'] in additional_data:
-                    for prop, data in additional_data[r['_key']].items():
+                    for prop, data in additional_data.pop(r['_key']).items():
                         if prop not in r:
                             r[prop] = []
                         elif not isinstance(r[prop], list):
                             log.error(
                                 "%s: Items of has-many relationship can't be assigned to property %s, it is not a list", r['_key'], prop)
-                        else:
-                            r[prop].append(data)
-                    del additional_data[r['_key']]
+                            continue
+                        r[prop].append(data)
 
                 if self.__endts and r['_ts'] > self.__endts:
                     continue
