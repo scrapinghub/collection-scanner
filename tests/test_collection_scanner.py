@@ -221,7 +221,7 @@ class HasManyCollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 1000)
         for record in records:
             for r in record['col_field']:
-                self.assertEqual(r['field3'], record['field1'])
+                self.assertEqual(r[0]['field3'], record['field1'])
 
 
 class MiscelaneousTest(TestCase):
