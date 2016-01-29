@@ -291,11 +291,13 @@ class CollectionScanner(object):
                 if r['_key'] in additional_data:
                     ts = additional_data[r['_key']]['_ts']
                     for prop, data in additional_data[r['_key']].items():
-                        if r.get(prop):
+                        if prop not in r:
+                            r[prop] = []
+                        elif not isinstance(r[prop], list):
                             log.error(
-                                "Items of has-many relationship can't be assigned to property %s, it's already defined on item %s")
+                                "%s: Items of has-many relationship can't be assigned to property %s, it is not a list", r['_key'], prop)
                         else:
-                            r[prop] = data
+                            r[prop].append(data)
                     if ts > r['_ts']:
                         r['_ts'] = ts
                     del additional_data[r['_key']]
