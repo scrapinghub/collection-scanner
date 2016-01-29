@@ -226,11 +226,8 @@ class CollectionScanner(object):
                     for r in col.get(count=[self.__max_next_records], start=start, meta=meta):
                         count += 1
                         last = key = r.pop('_key').split("_")[0]
-                        ts = r.pop('_ts')
                         secondary_data[key][prop] = [r] if prop not in secondary_data[key] else secondary_data[key][
                                                                                                     prop] + [r]
-                        if '_ts' not in secondary_data[key] or ts > secondary_data[key]['_ts']:
-                            secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
                 if count < self.__max_next_records:
@@ -289,7 +286,6 @@ class CollectionScanner(object):
                     if ts > r['_ts']:
                         r['_ts'] = ts
                 if r['_key'] in additional_data:
-                    ts = additional_data[r['_key']]['_ts']
                     for prop, data in additional_data[r['_key']].items():
                         if prop not in r:
                             r[prop] = []
@@ -298,8 +294,6 @@ class CollectionScanner(object):
                                 "%s: Items of has-many relationship can't be assigned to property %s, it is not a list", r['_key'], prop)
                         else:
                             r[prop].append(data)
-                    if ts > r['_ts']:
-                        r['_ts'] = ts
                     del additional_data[r['_key']]
 
                 if self.__endts and r['_ts'] > self.__endts:
