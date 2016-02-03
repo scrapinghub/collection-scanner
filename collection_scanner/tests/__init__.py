@@ -23,10 +23,16 @@ class FakeCollection(object):
         prefix = kwargs.get('prefix')
         retval = prefix is None or key.startswith(tuple(prefix))
         startafter = kwargs.get('startafter') or ''
+        start = kwargs.get('start') or ''
         if isinstance(startafter, list):
             startafter = startafter[0]
+        if isinstance(start, list):
+            start = start[0]
+        # start nulifies startafter
+        if start:
+            startafter = ''
         endts = kwargs.get('endts')
-        retval = retval and key > startafter and (not endts or self.base_time < endts)
+        retval = retval and key >= start and key > startafter and (not endts or self.base_time < endts)
         return retval
 
     def get(self, **kwargs):
