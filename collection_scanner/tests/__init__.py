@@ -18,6 +18,7 @@ class FakeCollection(object):
         self.samples = sorted(samples, key=itemgetter(0))
         self.return_less = return_less
         self.base_time = 1441940400000 # 2015-09-11
+        self.timestamps = {}
 
     def _must_issue_record(self, key, **kwargs):
         prefix = kwargs.get('prefix')
@@ -35,6 +36,12 @@ class FakeCollection(object):
         retval = retval and key >= start and key > startafter and (not endts or self.base_time < endts)
         return retval
 
+    def _get_basetime(self, key):
+        if key not in self.timestamps:
+            self.timestamps[key] = self.base_time
+            self.base_time += 3600000 # each record separated by one hour
+        return self.timestamps[key]
+
     def get(self, **kwargs):
         include_key = '_key' in kwargs.get('meta', {})
         include_ts = '_ts' in kwargs.get('meta', {})
@@ -47,13 +54,12 @@ class FakeCollection(object):
                 if include_key:
                     rvalue['_key'] = key
                 if include_ts:
-                    rvalue['_ts'] = self.base_time
+                    rvalue['_ts'] = self._get_basetime(key)
                 yield rvalue
                 if count is not None:
                     count -= 1
                     if count == self.return_less or count == 0:
                         break
-            self.base_time += 3600000 # each record separated by one hour
 
 class FakeCollections(object):
     def __init__(self, project, **kwargs):
