@@ -120,6 +120,12 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 1000)
         self.assertEqual(batch_count, 10)
 
+    def test_start(self, client_mock):
+        scanner, records, keys, batch_count = \
+            self._get_scanner_records(client_mock, collection_name='test', start='AD3', meta=['_key'], batchsize=100)
+        self.assertEqual(len(set(keys)), 700)
+        self.assertEqual(len(keys), 700)
+
 
 @patch('hubstorage.HubstorageClient', autospec=True)
 class CollectionScannerPartitionedTest(BaseCollectionScannerTest):

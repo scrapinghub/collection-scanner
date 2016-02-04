@@ -59,7 +59,7 @@ class _CachedBlocksCollection(object):
 
     def get(self, random_mode=False, **kwargs):
         """
-        if random_mode is True, disable features that are not needed for random scan which impairs efficiency.
+        if random_mode is True, optimize for random generation of samples.
         """
         collections = [random.choice(self.collections)] if random_mode else self.collections
         initial_count = kwargs.pop('count')[0] # must always be used with count parameter
@@ -177,6 +177,7 @@ class CollectionScanner(object):
         self.__max_next_records = max_next_records
         self.__enabled = True
 
+        self.__start = kwargs.pop('start', '')
         kwargs = kwargs.copy()
         self.__endts = self.convert_ts(kwargs.get('endts', None))
         kwargs['endts'] = self.__endts
@@ -258,10 +259,14 @@ class CollectionScanner(object):
         additional_data = {}
         batchcount = self.__batchsize
         max_next_records = self._get_max_next_records(batchcount)
+        # start used only once, as HS nulifies startafter if start is given
+        start = self.__start
+        self.__start = ''
+
         while max_next_records and self.__enabled:
             count = 0
             jump_prefix = False
-            for r in self.col.get(random_mode, count=[max_next_records], startafter=[self.__startafter], meta=meta, **kwargs):
+            for r in self.col.get(random_mode, count=[max_next_records], startafter=[self.__startafter], start=start, meta=meta, **kwargs):
                 if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
                     self.__enabled = False
                     break
