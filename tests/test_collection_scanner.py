@@ -237,3 +237,4 @@ class MiscelaneousTest(TestCase):
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08'), 1441670400000)
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08 20:00:00'), 1441742400000)
         self.assertEqual(CollectionScanner.str_to_msecs('2015-09-08T20:00:00'), 1441742400000)
+        self.assertEqual(CollectionScanner.str_to_msecs(None), 0)
