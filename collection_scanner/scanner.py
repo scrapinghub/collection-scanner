@@ -16,7 +16,7 @@ Before getting a new batch you can set a new startafter value with set_startafte
 """
 import time
 import random
-from dateutil import parser
+import dateparser
 import logging
 from collections import defaultdict
 from operator import itemgetter
@@ -344,7 +344,7 @@ class CollectionScanner(object):
         if isinstance(strtime, int):
             return strtime
         if isinstance(strtime, basestring):
-            d = parser.parse(strtime)
+            d = dateparser.parse(strtime)
             return int(time.mktime(d.timetuple()) - time.timezone) * 1000
         return 0
 
