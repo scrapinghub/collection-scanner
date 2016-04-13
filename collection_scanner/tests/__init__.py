@@ -68,6 +68,7 @@ class FakeCollections(object):
         self.collection_list = [{'name': n, 'type': 's'} for n in self.project.client.samples.keys()]
 
     def new_store(self, name):
+        print 'HUHU', self.project.client.samples.keys()
         return FakeCollection(name, self.project.client.samples[name], **self.kwargs)
 
     def apiget(self, call):

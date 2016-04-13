@@ -21,8 +21,6 @@ def get_num_partitions(hsp, collection_name):
     if partitions:
         if len(partitions) == max(partitions) + 1:
             return len(partitions)
-        else:
-            raise ValueError('Collection seems to be partitioned but not all partitions are available.')
 
 def filter_collections_exist(hsp, collection_names):
     """

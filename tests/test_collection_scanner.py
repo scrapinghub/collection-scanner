@@ -188,7 +188,7 @@ class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
             samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
 
     def test_partitioned(self, client_mock):
-        self.assertRaises(ValueError, self._get_scanner_records, client_mock, collection_name='testp', meta=['_key'],
+        self.assertRaisesRegexp(KeyError, r'\'testp\'', self._get_scanner_records, client_mock, collection_name='testp', meta=['_key'],
                           batchsize=100)
 
 
