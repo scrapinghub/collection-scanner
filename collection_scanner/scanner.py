@@ -78,6 +78,9 @@ class _CachedBlocksCollection(object):
                     break
                 index += 1
 
+        while self.cache and self.cache[0][0] < requested_startafter:
+            self.cache.pop(0)
+
         cache = []
         if len(self.cache) < initial_count * len(collections):
             if self.cache:
