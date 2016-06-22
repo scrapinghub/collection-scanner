@@ -11,7 +11,9 @@ def retry_on_exception(exception):
 
 
 def get_num_partitions(hsp, collection_name):
-    """Gets number of partitions of a partitioned collection."""
+    """Gets number of partitions of a partitioned collection.
+    Returns None if collection is not partitioned
+    """
     partitions = []
     partitions_re = re.compile(r'%s_(\d+)' % collection_name)
     for entry in hsp.collections.apiget('list'):
