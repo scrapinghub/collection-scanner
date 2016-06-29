@@ -341,7 +341,7 @@ class CollectionScanner(object):
     @staticmethod
     def str_to_msecs(strtime):
         """
-        Converts from '%Y-%m-%d %H:%M:%S' or '%Y-%m-%d' format to epoch milisecs,
+        Converts from any format supported by dateparser to epoch milisecs,
         which is the time representation used by hubstorage
         """
         if isinstance(strtime, int):
