@@ -39,6 +39,7 @@ __all__ = ['CollectionScanner']
 DEFAULT_BATCHSIZE = 10000
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class _CachedBlocksCollection(object):
