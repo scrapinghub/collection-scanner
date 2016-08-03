@@ -214,22 +214,6 @@ class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
             self.assertEqual(record['field1'], record['field3'])
 
 
-@patch('hubstorage.HubstorageClient', autospec=True)
-class HasManyCollectionScannerTest(BaseCollectionScannerTest):
-    class MyCollectionScanner(CollectionScanner):
-        has_many_collections = {'col_field': 'test_many_collections'}
-
-    scanner_class = MyCollectionScanner
-
-    def test_get(self, client_mock):
-        scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', meta=['_key'])
-        self.assertEqual(len(keys), 1000)
-        for record in records:
-            for r in record['col_field']:
-                self.assertEqual(r[0]['field3'], record['field1'])
-
-
 class MiscelaneousTest(TestCase):
     def test_str_to_msecs(self):
         self.assertEqual(CollectionScanner.str_to_msecs(100), 100)

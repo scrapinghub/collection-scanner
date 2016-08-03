@@ -127,11 +127,10 @@ class CollectionScanner(object):
     # are always a subset of key set of principal.
     # TODO: logic does not work with startts
     secondary_collections = []
-    has_many_collections = {}
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                  max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None,
-                 secondary_collections=None, has_many_collections=None,
+                 secondary_collections=None,
                  autodetect_partitions=True, **kwargs):
         """
         apikey - hubstorage apikey with access to given project
@@ -145,8 +144,6 @@ class CollectionScanner(object):
         stopbefore - stop once found given hs key prefix
         exclude_prefix - a list of key prefixes to exclude from scanning
         secondary_collections - a list of secondary collections that updates the class default one.
-        has_many_collections - a dict of ('property_name', 'collection') pairs. Each collection can contain zero or many
-                               items that will be added to 'property_name' property (a list)
         autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
                 collection when partitioned version also exists under the same name, use False.
         **kwargs - other extras arguments you want to pass to hubstorage collection, i.e.:
@@ -174,9 +171,6 @@ class CollectionScanner(object):
         self.secondary_collections.extend(secondary_collections or [])
         self.secondary = [_CachedBlocksCollection(self.hsp, name) for name in filter_collections_exist(self.hsp, self.secondary_collections)]
         self.__secondary_is_empty = defaultdict(bool)
-        self.has_many_collections.update(has_many_collections or {})
-        self.has_many = {prop: _CachedBlocksCollection(self.hsp, col) for prop, col in self.has_many_collections.items()}
-        self.__has_many_is_empty = defaultdict(bool)
         self.__batchsize = batchsize
         self.__max_next_records = max_next_records
         self.__enabled = True
@@ -219,26 +213,6 @@ class CollectionScanner(object):
                 if count < max_next_records:
                     self.__secondary_is_empty[col.colname] = True
                     log.info('Secondary collection {} is depleted'.format(col.colname))
-        return last, dict(secondary_data)
-
-    def get_additional_column_data(self, start):
-        secondary_data = defaultdict(dict)
-        last = None
-        max_next_records = self._get_max_next_records(self.__batchsize)
-        for prop, col in self.has_many.items():
-            if not self.__has_many_is_empty[prop]:
-                count = 0
-                try:
-                    for r in col.get(count=[max_next_records], start=start, meta=['_key']):
-                        count += 1
-                        last = key = r.pop('_key').split("_")[0]
-                        secondary_data[key][prop] = [r] if prop not in secondary_data[key] else secondary_data[key][
-                                                                                                    prop] + [r]
-                except KeyError:
-                    pass
-                if count < self.__max_next_records:
-                    self.__has_many_is_empty[prop] = True
-                    log.info('Additional collection {} is depleted'.format(prop))
         return last, dict(secondary_data)
 
     def convert_ts(self, timestamp):
@@ -285,24 +259,12 @@ class CollectionScanner(object):
                 self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or self.__startafter > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                if last_additional_key is None or self.__startafter > last_additional_key:
-                    last_additional_key, additional_data_temp = self.get_additional_column_data(start=self.__startafter)
-                    additional_data.update(additional_data_temp)
                 srecord = secondary_data.pop(r['_key'], None)
                 if srecord is not None:
                     ts = srecord['_ts']
                     r.update(srecord)
                     if ts > r['_ts']:
                         r['_ts'] = ts
-                if r['_key'] in additional_data:
-                    for prop, data in additional_data.pop(r['_key']).items():
-                        if prop not in r:
-                            r[prop] = []
-                        elif not isinstance(r[prop], list):
-                            log.error(
-                                "%s: Items of has-many relationship can't be assigned to property %s, it is not a list", r['_key'], prop)
-                            continue
-                        r[prop].append(data)
 
                 if self.__endts and r['_ts'] > self.__endts:
                     continue
