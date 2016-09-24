@@ -129,7 +129,7 @@ class CollectionScanner(object):
     secondary_collections = []
 
     def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
-                 max_next_records=10000, startafter=None, stopbefore=None, exclude_prefixes=None,
+                 max_next_records=1000, startafter=None, stopbefore=None, exclude_prefixes=None,
                  secondary_collections=None,
                  autodetect_partitions=True, **kwargs):
         """
