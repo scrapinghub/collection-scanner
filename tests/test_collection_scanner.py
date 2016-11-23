@@ -104,6 +104,11 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(len(keys), 500)
 
     def test_startafter_per_batch(self, client_mock):
+        # expected batches:
+        # from AD100 to AD199
+        # from AD400 to AD499
+        # from AD800 to AD899
+        # from AD900 to AD999
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD399', 'AD799'],
                                       startafter='AD8', meta=['_key'], batchsize=100)

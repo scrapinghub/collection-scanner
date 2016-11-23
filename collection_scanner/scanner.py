@@ -75,13 +75,13 @@ class _CachedBlocksCollection(object):
         if requested_startafter is None:
             self.cache = defaultdict(list)
         else: # remove all entries in cache below the given startafter
-            for pcache in self.cache.values():
+            for col in self.cache.keys():
                 index = 0
-                for key, _ in pcache:
+                for key, _ in self.cache[col]:
                     if key > requested_startafter:
-                        pcache = pcache[index:]
                         break
                     index += 1
+                self.cache[col] = self.cache[col][index:]
 
         finished_collections = set()
         startafter = {c: requested_startafter for c in collections}
