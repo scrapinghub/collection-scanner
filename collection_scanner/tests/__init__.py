@@ -43,6 +43,8 @@ class FakeCollection(object):
         return self.timestamps[key]
 
     def get(self, **kwargs):
+        if not self.samples:
+            raise KeyError(None)
         include_key = '_key' in kwargs.get('meta', {})
         include_ts = '_ts' in kwargs.get('meta', {})
         count = kwargs.get('count') or None

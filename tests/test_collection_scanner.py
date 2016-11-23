@@ -15,7 +15,8 @@ class BaseCollectionScannerTest(TestCase):
         'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)],
         'test_many_collections': [('AD%.3d_%d' % (i, j), {'field3': 'value 1-%.3d' % i, 'field4': 'value 1-%.3d' % j})
                                   for i in range(1000) for j in
-                                  range(3)]
+                                  range(3)],
+        'empty': [],
     }
 
     scanner_class = CollectionScanner
@@ -131,6 +132,12 @@ class CollectionScannerTest(BaseCollectionScannerTest):
             self._get_scanner_records(client_mock, collection_name='test', start='AD3', meta=['_key'], batchsize=100)
         self.assertEqual(len(set(keys)), 700)
         self.assertEqual(len(keys), 700)
+
+    def test_get_from_empty_collection(self, client_mock):
+        scanner, records, keys, batch_count = \
+            self._get_scanner_records(client_mock, collection_name='empty', meta=['_key'])
+        self.assertEqual(len(keys), 0)
+        self.assertEqual(batch_count, 0)
 
 
 @patch('hubstorage.HubstorageClient', autospec=True)

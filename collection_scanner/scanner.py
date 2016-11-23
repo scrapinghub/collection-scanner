@@ -128,7 +128,11 @@ class _CachedBlocksCollection(object):
 
     @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
     def _read_from_collection(self, collection, **kwargs):
-        return collection.get(**kwargs)
+        try:
+            for record in collection.get(**kwargs):
+                yield record
+        except KeyError: # HS raises KeyError on empty collections
+            return
 
 
 class CollectionScanner(object):
