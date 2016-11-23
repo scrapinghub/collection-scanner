@@ -16,10 +16,11 @@ Before getting a new batch you can set a new startafter value with set_startafte
 """
 import time
 import random
-import dateparser
 import logging
 from collections import defaultdict
 from operator import itemgetter
+
+import dateparser
 
 from retrying import retry
 
@@ -28,7 +29,6 @@ import hubstorage
 from .utils import (
     retry_on_exception,
     get_num_partitions,
-    generate_prefixes,
     filter_collections_exist,
     LIMIT_KEY_CHAR,
 )
@@ -44,13 +44,16 @@ log.setLevel(logging.INFO)
 
 class _CachedBlocksCollection(object):
     """
-    Gets blocks of records and cache them for fast future gets.
+    - Gets blocks of records and cache them for fast future gets.
+    - Hides partitioning
     """
     def __init__(self, hsp, colname, partitions=None):
         self.hsp = hsp
         self.colname = colname
         self.collections = []
-        self.cache = []
+        self.cache = defaultdict(list)
+        self.return_cache = []
+        self.max_in_return_cache = ''
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -62,54 +65,47 @@ class _CachedBlocksCollection(object):
         """
         if random_mode is True, optimize for random generation of samples.
         """
-        collections = [random.choice(self.collections)] if random_mode else self.collections
-        initial_count = kwargs.pop('count')[0] # must always be used with count parameter
-        assert initial_count
-        requested_startafter = initial_startafter = kwargs.pop('startafter', None)
+        collections = set([random.choice(self.collections)] if random_mode else self.collections)
+        max_next_records = kwargs.pop('count')[0] # must always be used with count parameter
+        assert max_next_records
+        requested_startafter = kwargs.pop('startafter', None)
         if isinstance(requested_startafter, list):
-            requested_startafter = initial_startafter = requested_startafter[0]
+            requested_startafter = requested_startafter[0]
 
-        if requested_startafter == None:
-            self.cache = []
-        else:
-            index = 0
-            for key, _ in self.cache:
-                if key > requested_startafter:
-                    self.cache = self.cache[index:]
-                    break
-                index += 1
+        if requested_startafter is None:
+            self.cache = defaultdict(list)
+        else: # remove all entries in cache below the given startafter
+            for pcache in self.cache.values():
+                index = 0
+                for key, _ in pcache:
+                    if key > requested_startafter:
+                        pcache = pcache[index:]
+                        break
+                    index += 1
 
-        while self.cache and self.cache[0][0] < requested_startafter:
-            self.cache.pop(0)
-
-        cache = []
-        if len(self.cache) < initial_count * len(collections):
-            if self.cache:
-                initial_startafter = max(requested_startafter, self.cache[-1][0])
-            startafter = {col.colname: [initial_startafter] for col in collections}
-            for col in collections:
-                data = True
-                count = 0
-                while data and count < initial_count:
+        finished_collections = set()
+        startafter = {c: requested_startafter for c in collections}
+        while collections.difference(finished_collections):
+            for col in collections.difference(finished_collections):
+                pcache = self.cache[col]
+                if not pcache:
                     data = False
-                    for record in self._read_from_collection(col, count=[initial_count - count], startafter=startafter[col.colname], **kwargs):
-                        count += 1
+                    for record in self._read_from_collection(col, count=[max_next_records], startafter=[startafter[col]], **kwargs):
                         data = True
-                        cache.append((record['_key'], record))
-                        startafter[col.colname] = [record['_key']]
-        returned = 0
-        cache = sorted(cache, key=itemgetter(0))
-        if not self.cache:
-            self.cache = cache
-        else:
-            while cache:
-                self.cache.append(cache.pop(0))
-        while self.cache:
-            key, record = self.cache.pop(0)
+                        startafter[col] = record['_key']
+                        pcache.append((record['_key'], record))
+                    if not data:
+                        finished_collections.add(col)
+                if pcache and (len(self.return_cache) < max_next_records or pcache[0][0] < self.max_in_return_cache):
+                    key, record = pcache.pop(0)
+                    self.return_cache.append((key, record))
+                    self.max_in_return_cache = max(self.max_in_return_cache, key)
+                else:
+                    finished_collections.add(col)
+        self.return_cache = sorted(self.return_cache, key=itemgetter(0))
+        to_return_now, self.return_cache = self.return_cache[:max_next_records], self.return_cache[max_next_records:]
+        for key, record in to_return_now:
             yield record
-            returned += 1
-            if returned == initial_count:
-                return
 
     @retry(wait_fixed=120000, retry_on_exception=retry_on_exception, stop_max_attempt_number=10)
     def _read_from_collection(self, collection, **kwargs):
@@ -233,8 +229,6 @@ class CollectionScanner(object):
         original_meta = kwargs.pop('meta', [])
         meta = {'_key', '_ts'}.union(original_meta)
         last_secondary_key = None
-        last_additional_key = None
-        additional_data = {}
         batchcount = self.__batchsize
         max_next_records = self._get_max_next_records(batchcount)
         # start used only once, as HS nulifies startafter if start is given

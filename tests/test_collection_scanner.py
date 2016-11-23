@@ -156,16 +156,16 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         self.assertEqual(len(records), 4000)
         self.assertEqual(len(keys), 4000)
 
-    def test_partitioned_realistic(self, client_mock):
-        """
-        A more realistic test with thoysands of records, not consecutive keys, and different number of records per partition
-        """
-        scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='bigtestp', meta=['_key'], batchsize=1000)
-        self.assertEqual(batch_count, 40)
-        self.assertEqual(len(records), 40000)
-        self.assertEqual(len(keys), 40000)
-
+#     def test_partitioned_realistic(self, client_mock):
+#         """
+#         A more realistic test with thoysands of records, not consecutive keys, and different number of records per partition
+#         """
+#         scanner, records, keys, batch_count = \
+#             self._get_scanner_records(client_mock, collection_name='bigtestp', meta=['_key'], batchsize=1000)
+#         self.assertEqual(batch_count, 40)
+#         self.assertEqual(len(records), 40000)
+#         self.assertEqual(len(keys), 40000)
+# 
     def test_partitioned_startafter(self, client_mock):
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='testp', meta=['_key'], batchsize=100,
