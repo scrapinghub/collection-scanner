@@ -227,7 +227,7 @@ class CollectionScanner(object):
                     pass
                 if count < max_next_records:
                     self.__secondary_is_empty[col.colname] = True
-                    log.info('Secondary collection {} is depleted'.format(col.colname))
+                    log.info('Secondary collection %s is depleted', col.colname)
         return last, dict(secondary_data)
 
     def convert_ts(self, timestamp):
@@ -289,7 +289,7 @@ class CollectionScanner(object):
                 self.__scanned_count += 1
                 batchcount -= 1
                 if self.__scanned_count % 10000 == 0:
-                    log.info("Last key: {}, Scanned {}".format(self.lastkey, self.__scanned_count))
+                    log.info("Last key: %s, Scanned %d", self.lastkey, self.__scanned_count)
                 yield r
             self.__enabled = count >= max_next_records and (
                 not self.__totalcount or self.__scanned_count < self.__totalcount) or jump_prefix
@@ -308,7 +308,7 @@ class CollectionScanner(object):
                 yield batch
 
     def close(self):
-        log.info("Total scanned: %d" % self.__scanned_count)
+        log.info("Total scanned: %d", self.__scanned_count)
         self.hsc.close()
 
     def set_startafter(self, startafter):
