@@ -2,7 +2,7 @@
 Allow to count on partitioned collections
 """
 import logging
-import hubstorage
+from scrapinghub import hubstorage
 import random
 from .utils import get_num_partitions, generate_prefixes
 
