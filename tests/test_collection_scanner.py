@@ -40,7 +40,7 @@ class BaseCollectionScannerTest(TestCase):
         return scanner, records, sorted(keys), batch_count
 
 
-@patch('hubstorage.HubstorageClient', autospec=True)
+@patch('scrapinghub.hubstorage.HubstorageClient', autospec=True)
 class CollectionScannerTest(BaseCollectionScannerTest):
     def test_get(self, client_mock):
         scanner, records, keys, batch_count = \
@@ -140,7 +140,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(batch_count, 0)
 
 
-@patch('hubstorage.HubstorageClient', autospec=True)
+@patch('scrapinghub.hubstorage.HubstorageClient', autospec=True)
 class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
     samples = {}
     for partition in range(4):
@@ -212,7 +212,7 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         self.assertEqual(records[-1]['_key'], 'AD2699')
 
 
-@patch('hubstorage.HubstorageClient', autospec=True)
+@patch('scrapinghub.hubstorage.HubstorageClient', autospec=True)
 class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
     samples = {}
     for partition in [1, 2, 3]:
@@ -227,7 +227,7 @@ class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
                           batchsize=100)
 
 
-@patch('hubstorage.HubstorageClient', autospec=True)
+@patch('scrapinghub.hubstorage.HubstorageClient', autospec=True)
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
     class MyCollectionScanner(CollectionScanner):
         secondary_collections = ['test2', 'test3'] # test3 does not exist, must be filtered
