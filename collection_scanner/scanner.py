@@ -24,7 +24,7 @@ import dateparser
 
 from retrying import retry
 
-import hubstorage
+from scrapinghub import hubstorage
 
 from .utils import (
     retry_on_exception,
