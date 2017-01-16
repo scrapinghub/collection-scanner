@@ -36,6 +36,7 @@ def filter_collections_exist(hsp, collection_names):
 
 def generate_prefixes(col, codelen, startafter=None, **kwargs):
     data = True
+    col._collections._allows_mpack = lambda x: False
     while data:
         data = False
         for r in col.get(nodata=1, meta=['_key'], startafter=startafter, count=1, **kwargs):
