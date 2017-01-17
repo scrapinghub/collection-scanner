@@ -36,6 +36,7 @@ def filter_collections_exist(hsp, collection_names):
 
 def generate_prefixes(col, codelen, startafter=None, **kwargs):
     data = True
+    # TODO: remove this once fix KUMO-1578 in hubstorage server is deployed
     col._collections._allows_mpack = lambda x: False
     while data:
         data = False

@@ -3,6 +3,7 @@ image: scrapinghub
 
 script:
   - git restore-mtime
+  - pip install -U pip setuptools
   - pip install -U tox shub
   - tox
 
