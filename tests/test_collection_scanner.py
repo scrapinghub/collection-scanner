@@ -112,7 +112,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         # from AD900 to AD999
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD399', 'AD799'],
-                                      startafter='AD8', meta=['_key'], batchsize=100)
+                                      meta=['_key'], batchsize=100)
         self.assertEqual(len(keys), 400)
         self.assertEqual(batch_count, 4)
         self.assertEqual(records[0]['_key'], 'AD100')
@@ -120,6 +120,18 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(records[200]['_key'], 'AD800')
         self.assertEqual(records[300]['_key'], 'AD900')
         self.assertEqual(records[-1]['_key'], 'AD999')
+
+    def test_startafter_per_batch_unsorted_startafter(self, client_mock):
+        # expected batches:
+        # from AD100 to AD199
+        # from AD800 to AD899
+        # from AD900 to AD999
+        # from AD400 to AD499
+        with self.assertRaisesRegexp(AssertionError,
+            'startafter series must be strictly increasing. Previous startafter: AD799 Last startafter: AD399'):
+            scanner, records, keys, batch_count = \
+                self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD799', 'AD399'],
+                                      meta=['_key'], batchsize=100)
 
     def test_server_returns_less_records_than_requested(self, client_mock):
         scanner, records, keys, batch_count = \

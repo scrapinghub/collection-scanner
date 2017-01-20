@@ -54,6 +54,7 @@ class _CachedBlocksCollection(object):
         self.cache = defaultdict(list)
         self.return_cache = []
         self.max_in_return_cache = ''
+        self.__last_requested_startafter = ''
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -76,6 +77,10 @@ class _CachedBlocksCollection(object):
             self.cache = defaultdict(list)
             self.return_cache = []
         else: # remove all entries in cache below the given startafter
+            assert requested_startafter > self.__last_requested_startafter, \
+                   'startafter series must be strictly increasing. Previous startafter: %s Last startafter: %s' \
+                   % (self.__last_requested_startafter, requested_startafter)
+            self.__last_requested_startafter = requested_startafter
             for col in self.cache.keys():
                 index = -1
                 for index, (key, _) in enumerate(self.cache[col]):
