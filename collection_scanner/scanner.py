@@ -73,7 +73,7 @@ class _CachedBlocksCollection(object):
         if isinstance(requested_startafter, list):
             requested_startafter = requested_startafter[0]
 
-        if requested_startafter is None:
+        if not requested_startafter:
             self.cache = defaultdict(list)
             self.return_cache = []
         else: # remove all entries in cache below the given startafter
