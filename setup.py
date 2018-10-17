@@ -6,5 +6,7 @@ setup(
     packages=find_packages(),
     install_requires = [
         'dateparser',
+        'retrying',
+        'scrapinghub>=2.0.3',
     ]
 )

@@ -1,3 +1,0 @@
-retrying==1.2.3
-dateparser==0.5.0
-scrapinghub==1.9.0
