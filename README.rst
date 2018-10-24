@@ -9,3 +9,6 @@ High level hubstorage collection scanner
 - Provides method for arbitrary prefix aggregation counting
 - Supports partitioned collections
 - Provides a suite for testing hs collection code.
+
+Up to version 0.1.6: Python2 only
+Starting version 0.2: Python3 only
