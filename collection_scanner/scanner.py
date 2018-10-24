@@ -243,9 +243,9 @@ class CollectionScanner(object):
         """
         Read a timestamp in diverse formats and return milisecs epoch
         """
-        if hasattr(timestamp, '__iter__'):
+        if isinstance(timestamp, (list, tuple)):
             timestamp = timestamp[0]
-        if isinstance(timestamp, basestring):
+        if isinstance(timestamp, str):
             timestamp = self.str_to_msecs(timestamp)
         return timestamp
 
@@ -331,7 +331,7 @@ class CollectionScanner(object):
         """
         if isinstance(strtime, int):
             return strtime
-        if isinstance(strtime, basestring):
+        if isinstance(strtime, str):
             d = dateparser.parse(strtime)
             return int(time.mktime(d.timetuple()) - time.timezone) * 1000
         return 0

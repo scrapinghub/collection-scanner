@@ -6,7 +6,7 @@ LIMIT_KEY_CHAR = '~'
 
 
 def retry_on_exception(exception):
-    print "Retried: {}".format(traceback.format_exc())
+    print(f"Retried: {traceback.format_exc()}")
     return not isinstance(exception, KeyboardInterrupt)
 
 

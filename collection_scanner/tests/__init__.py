@@ -19,6 +19,8 @@ class FakeCollection(object):
         self.return_less = return_less
         self.base_time = 1441940400000 # 2015-09-11
         self.timestamps = {}
+        for key, _ in self.samples:
+            self._get_basetime(key) # populate timestamps
 
     def _must_issue_record(self, key, **kwargs):
         prefix = kwargs.get('prefix')
@@ -26,14 +28,14 @@ class FakeCollection(object):
         startafter = kwargs.get('startafter') or ''
         start = kwargs.get('start') or ''
         if isinstance(startafter, list):
-            startafter = startafter[0]
+            startafter = startafter[0] or ''
         if isinstance(start, list):
             start = start[0]
         # start nulifies startafter
         if start:
             startafter = ''
         endts = kwargs.get('endts')
-        retval = retval and key >= start and key > startafter and (not endts or self.base_time < endts)
+        retval = retval and key >= start and key > startafter and (not endts or self._get_basetime(key) < endts)
         return retval
 
     def _get_basetime(self, key):
