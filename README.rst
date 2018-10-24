@@ -8,3 +8,4 @@ High level hubstorage collection scanner
 - Adds stopbefore feature (analogous to startafter but the inverse)
 - Provides method for arbitrary prefix aggregation counting
 - Supports partitioned collections
+- Provides a suite for testing hs collection code.
