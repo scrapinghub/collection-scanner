@@ -27,10 +27,11 @@ class BaseCollectionScannerTest(TestCase):
     def setUp(self):
         self.prev_env = os.environ
         os.environ['SH_APIKEY'] = 'apikey'
+        os.environ['SHUB_JOBKEY'] = '10/1/1'
 
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
         client_mock.return_value._hsclient = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
-        scanner = self.scanner_class(0, **kwargs)
+        scanner = self.scanner_class(**kwargs)
         records = []
         keys = set()
         batch_count = 0

@@ -31,6 +31,7 @@ from .utils import (
     get_num_partitions,
     filter_collections_exist,
     LIMIT_KEY_CHAR,
+    get_project_id,
 )
 
 
@@ -152,13 +153,13 @@ class CollectionScanner(object):
     # TODO: logic does not work with startts
     secondary_collections = []
 
-    def __init__(self, project_id, collection_name, apikey=None, batchsize=DEFAULT_BATCHSIZE, count=0,
+    def __init__(self, collection_name, project_id=None, apikey=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                  max_next_records=1000, startafter=None, stopbefore=None, exclude_prefixes=None,
                  secondary_collections=None,
                  autodetect_partitions=True, **kwargs):
         """
-        project_id - target project id
         collection_name - target collection
+        project_id - target project id. If none, autodetect from SHUB_JOBKEY environment variable.
         apikey - hubstorage apikey with access to given project. If None, get from SH_APIKEY environment variable
                  (delegated to scrapinghub library).
         batchsize - size of each batch in number of records
@@ -177,6 +178,7 @@ class CollectionScanner(object):
                 etc (see husbtorage documentation)
         """
         self.hsc = ScrapinghubClient(apikey)._hsclient
+        project_id = project_id or get_project_id()
         self.hsp = self.hsc.get_project(project_id)
 
         num_partitions = None

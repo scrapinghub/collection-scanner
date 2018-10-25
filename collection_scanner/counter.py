@@ -4,7 +4,7 @@ Allow to count on partitioned collections
 import logging
 from scrapinghub import ScrapinghubClient
 import random
-from .utils import get_num_partitions, generate_prefixes
+from .utils import get_num_partitions, generate_prefixes, get_project_id
 
 
 __all__ = ['CollectionCounter']
@@ -14,15 +14,16 @@ log = logging.getLogger(__name__)
 
 
 class CollectionCounter(object):
-    def __init__(self, project_id, collection_name, apikey=None, autodetect_partitions=True):
+    def __init__(self, collection_name, project_id=None, apikey=None, autodetect_partitions=True):
         """
-        project_id - target project id
         collection_name - target collection
+        project_id - target project id
         apikey - hubstorage apikey with access to given project. If None, delegate to scrapinghub lib.
         autodetect_partitions - If provided, autodetect partitioned collection. By default is True. If you want instead to force to read a non-partitioned
                 collection when partitioned version also exists under the same name, use False.
         """
         self.hsc = ScrapinghubClient(apikey)._hsclient
+        project_id = project_id or get_project_id()
         self.hsp = self.hsc.get_project(project_id)
 
         num_partitions = None

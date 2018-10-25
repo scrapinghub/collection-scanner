@@ -1,4 +1,5 @@
 import re
+import os
 import traceback
 
 
@@ -44,3 +45,9 @@ def generate_prefixes(col, codelen, startafter=None, **kwargs):
             startafter = code + LIMIT_KEY_CHAR
             yield code
 
+
+def get_project_id():
+    try:
+        return os.environ['SHUB_JOBKEY'].split('/')[0]
+    except KeyError:
+        raise ValueError("Project id not found")
