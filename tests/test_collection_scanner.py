@@ -1,3 +1,5 @@
+import os
+
 from unittest import TestCase
 from hashlib import sha256
 
@@ -9,6 +11,7 @@ from collection_scanner.tests import FakeClient
 
 
 class BaseCollectionScannerTest(TestCase):
+
     samples = {
         # collection name -> records
         'test': [('AD%.3d' % i, {'field1': 'value 1-%.3d' % i, 'field2': 'value 2-%.3d' % i}) for i in range(1000)],
@@ -21,9 +24,13 @@ class BaseCollectionScannerTest(TestCase):
 
     scanner_class = CollectionScanner
 
+    def setUp(self):
+        self.prev_env = os.environ
+        os.environ['SH_APIKEY'] = 'apikey'
+
     def _get_scanner_records(self, client_mock, startafter_list=None, **kwargs):
-        client_mock.return_value = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
-        scanner = self.scanner_class('apikey', 0, **kwargs)
+        client_mock.return_value._hsclient = FakeClient(self.samples, return_less=kwargs.get('return_less', 0))
+        scanner = self.scanner_class(0, **kwargs)
         records = []
         keys = set()
         batch_count = 0
@@ -39,8 +46,11 @@ class BaseCollectionScannerTest(TestCase):
                 scanner.set_startafter(startafter_list.pop(0))
         return scanner, records, sorted(keys), batch_count
 
+    def tearDown(self):
+        os.environ = self.prev_env
 
-@patch('scrapinghub.hubstorage.HubstorageClient')
+
+@patch('collection_scanner.scanner.ScrapinghubClient')
 class CollectionScannerTest(BaseCollectionScannerTest):
     def test_get(self, client_mock):
         scanner, records, keys, batch_count = \
@@ -152,7 +162,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         self.assertEqual(batch_count, 0)
 
 
-@patch('scrapinghub.hubstorage.HubstorageClient')
+@patch('collection_scanner.scanner.ScrapinghubClient')
 class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
     samples = {}
     for partition in range(4):
@@ -224,7 +234,7 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         self.assertEqual(records[-1]['_key'], 'AD2699')
 
 
-@patch('scrapinghub.hubstorage.HubstorageClient')
+@patch('collection_scanner.scanner.ScrapinghubClient')
 class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
     samples = {}
     for partition in [1, 2, 3]:
@@ -239,7 +249,7 @@ class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
                           batchsize=100)
 
 
-@patch('scrapinghub.hubstorage.HubstorageClient')
+@patch('collection_scanner.scanner.ScrapinghubClient')
 class SecondaryCollectionScannerTest(BaseCollectionScannerTest):
     class MyCollectionScanner(CollectionScanner):
         secondary_collections = ['test2', 'test3'] # test3 does not exist, must be filtered

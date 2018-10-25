@@ -5,7 +5,7 @@ Basic usage:
 
 from collection_scanner import CollectionScanner
 
-scanner = CollectionScanner(<apikey>, <project id>, <collection name>, **kwargs)
+scanner = CollectionScanner(<project id>, <collection name>, **kwargs)
 batches = scanner.scan_collection_batches()
 batch = next(batches)
 for record in batch:
@@ -24,7 +24,7 @@ import dateparser
 
 from retrying import retry
 
-from scrapinghub import hubstorage
+from scrapinghub import ScrapinghubClient
 
 from .utils import (
     retry_on_exception,
@@ -152,15 +152,15 @@ class CollectionScanner(object):
     # TODO: logic does not work with startts
     secondary_collections = []
 
-    def __init__(self, apikey, project_id, collection_name, endpoint=None, batchsize=DEFAULT_BATCHSIZE, count=0,
+    def __init__(self, project_id, collection_name, apikey=None, batchsize=DEFAULT_BATCHSIZE, count=0,
                  max_next_records=1000, startafter=None, stopbefore=None, exclude_prefixes=None,
                  secondary_collections=None,
                  autodetect_partitions=True, **kwargs):
         """
-        apikey - hubstorage apikey with access to given project
         project_id - target project id
         collection_name - target collection
-        endpoint - hubstorage server endpoint (defaults to python-hubstorage default)
+        apikey - hubstorage apikey with access to given project. If None, get from SH_APIKEY environment variable
+                 (delegated to scrapinghub library).
         batchsize - size of each batch in number of records
         count - total count of records to retrieve
         max_next_records - how many records get on each call to hubstorage server
@@ -176,7 +176,7 @@ class CollectionScanner(object):
                 - meta (a list with either '_ts' and/or '_key')
                 etc (see husbtorage documentation)
         """
-        self.hsc = hubstorage.HubstorageClient(apikey, endpoint=endpoint)
+        self.hsc = ScrapinghubClient(apikey)._hsclient
         self.hsp = self.hsc.get_project(project_id)
 
         num_partitions = None
