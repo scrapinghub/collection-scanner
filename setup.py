@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='collection_scanner',
-    version='0.2.1',
+    version='0.3',
     description='Scrapinghub Hubstorage Collection scanner.',
     long_description = open('README.rst').read(),
     license='BSD',
