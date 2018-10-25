@@ -12,3 +12,5 @@ High level hubstorage collection scanner
 
 Up to version 0.1.6: Python2 only
 Starting version 0.2: Python3 only
+
+See usage instructions at `scanner.py <https://github.com/scrapinghub/collection-scanner/blob/master/collection_scanner/scanner.py>`_ docstring.
