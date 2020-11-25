@@ -3,7 +3,7 @@ import os
 import traceback
 
 
-LIMIT_KEY_CHAR = '~'
+LIMIT_KEY_CHAR = b'~'
 
 
 def retry_on_exception(exception):

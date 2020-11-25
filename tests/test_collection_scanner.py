@@ -14,9 +14,9 @@ class BaseCollectionScannerTest(TestCase):
 
     samples = {
         # collection name -> records
-        'test': [('AD%.3d' % i, {'field1': 'value 1-%.3d' % i, 'field2': 'value 2-%.3d' % i}) for i in range(1000)],
-        'test2': [('AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)],
-        'test_many_collections': [('AD%.3d_%d' % (i, j), {'field3': 'value 1-%.3d' % i, 'field4': 'value 1-%.3d' % j})
+        'test': [(b'AD%.3d' % i, {'field1': 'value 1-%.3d' % i, 'field2': 'value 2-%.3d' % i}) for i in range(1000)],
+        'test2': [(b'AD%.3d' % i, {'field3': 'value 1-%.3d' % i}) for i in range(1000)],
+        'test_many_collections': [(b'AD%.3d_%d' % (i, j), {'field3': 'value 1-%.3d' % i, 'field4': 'value 1-%.3d' % j})
                                   for i in range(1000) for j in
                                   range(3)],
         'empty': [],
@@ -63,32 +63,32 @@ class CollectionScannerTest(BaseCollectionScannerTest):
 
     def test_prefix(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', prefix=['AD1', 'AD4'], meta=[b'_key'])
+            self._get_scanner_records(client_mock, collection_name='test', prefix=[b'AD1', b'AD4'], meta=[b'_key'])
         self.assertEqual(len(keys), 200)
         self.assertEqual(batch_count, 1)
 
     def test_exclude_prefixes(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', exclude_prefixes=['AD1', 'AD4'],
+            self._get_scanner_records(client_mock, collection_name='test', exclude_prefixes=[b'AD1', b'AD4'],
                                       meta=[b'_key'])
         self.assertEqual(len(keys), 800)
         self.assertEqual(batch_count, 1)
 
     def test_startafter(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', startafter='AD8', meta=[b'_key'])
+            self._get_scanner_records(client_mock, collection_name='test', startafter=b'AD8', meta=[b'_key'])
         self.assertEqual(len(keys), 200)
         self.assertEqual(batch_count, 1)
 
     def test_stopbefore(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', stopbefore='AD3', meta=[b'_key'])
+            self._get_scanner_records(client_mock, collection_name='test', stopbefore=b'AD3', meta=[b'_key'])
         self.assertEqual(len(keys), 300)
         self.assertEqual(batch_count, 1)
 
     def test_startafter_stopbefore(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', startafter='AD3', stopbefore='AD8',
+            self._get_scanner_records(client_mock, collection_name='test', startafter=b'AD3', stopbefore=b'AD8',
                                       meta=[b'_key'])
         self.assertEqual(len(keys), 500)
         self.assertEqual(batch_count, 1)
@@ -122,15 +122,15 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         # from AD800 to AD899
         # from AD900 to AD999
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD399', 'AD799'],
+            self._get_scanner_records(client_mock, collection_name='test', startafter_list=[b'AD099', b'AD399', b'AD799'],
                                       meta=[b'_key'], batchsize=100)
         self.assertEqual(len(keys), 400)
         self.assertEqual(batch_count, 4)
-        self.assertEqual(records[0][b'_key'], 'AD100')
-        self.assertEqual(records[100][b'_key'], 'AD400')
-        self.assertEqual(records[200][b'_key'], 'AD800')
-        self.assertEqual(records[300][b'_key'], 'AD900')
-        self.assertEqual(records[-1][b'_key'], 'AD999')
+        self.assertEqual(records[0][b'_key'], b'AD100')
+        self.assertEqual(records[100][b'_key'], b'AD400')
+        self.assertEqual(records[200][b'_key'], b'AD800')
+        self.assertEqual(records[300][b'_key'], b'AD900')
+        self.assertEqual(records[-1][b'_key'], b'AD999')
 
     def test_startafter_per_batch_unsorted_startafter(self, client_mock):
         # expected batches:
@@ -141,7 +141,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
         with self.assertRaisesRegexp(AssertionError,
             'startafter series must be strictly increasing. Previous startafter: AD799 Last startafter: AD399'):
             scanner, records, keys, batch_count = \
-                self._get_scanner_records(client_mock, collection_name='test', startafter_list=['AD099', 'AD799', 'AD399'],
+                self._get_scanner_records(client_mock, collection_name='test', startafter_list=[b'AD099', b'AD799', b'AD399'],
                                       meta=[b'_key'], batchsize=100)
 
     def test_server_returns_less_records_than_requested(self, client_mock):
@@ -152,7 +152,7 @@ class CollectionScannerTest(BaseCollectionScannerTest):
 
     def test_start(self, client_mock):
         scanner, records, keys, batch_count = \
-            self._get_scanner_records(client_mock, collection_name='test', start='AD3', meta=[b'_key'], batchsize=100)
+            self._get_scanner_records(client_mock, collection_name='test', start=b'AD3', meta=[b'_key'], batchsize=100)
         self.assertEqual(len(set(keys)), 700)
         self.assertEqual(len(keys), 700)
 
@@ -170,7 +170,7 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         samples['testp_%d' % partition] = []
     for i in range(4000):
         partition = i % 4
-        samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
+        samples['testp_%d' % partition].append((b'AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
 
     for partition in range(8):
         samples['bigtestp_%d' % partition] = []
@@ -180,7 +180,7 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
         keyhash.update(str(i).encode())
         unsorted_samples.add(keyhash.hexdigest()[-16:])
     for keyhash in sorted(unsorted_samples):
-        key = 'AD' + keyhash
+        key = b'AD' + keyhash.encode()
         partition = int(keyhash[0], base=16) % 8
         samples['bigtestp_%d' % partition].append((key, {'field1': keyhash}))
 
@@ -204,35 +204,35 @@ class CollectionScannerPartitionedTest(BaseCollectionScannerTest):
     def test_partitioned_startafter(self, client_mock):
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='testp', meta=[b'_key'], batchsize=100,
-                                      startafter='AD2499')
+                                      startafter=b'AD2499')
         self.assertEqual(batch_count, 15)
         self.assertEqual(len(records), 1500)
         self.assertEqual(len(keys), 1500)
         self.assertEqual(sorted(keys), [r[b'_key'] for r in records])
-        self.assertEqual(records[0][b'_key'], 'AD2500')
-        self.assertEqual(records[-1][b'_key'], 'AD3999')
+        self.assertEqual(records[0][b'_key'], b'AD2500')
+        self.assertEqual(records[-1][b'_key'], b'AD3999')
 
     def test_partitioned_stopbefore(self, client_mock):
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='testp', meta=[b'_key'], batchsize=100,
-                                      stopbefore='AD2500')
+                                      stopbefore=b'AD2500')
         self.assertEqual(batch_count, 25)
         self.assertEqual(len(records), 2500)
         self.assertEqual(len(keys), 2500)
         self.assertEqual(sorted(keys), [r[b'_key'] for r in records])
-        self.assertEqual(records[0][b'_key'], 'AD0000')
-        self.assertEqual(records[-1][b'_key'], 'AD2499')
+        self.assertEqual(records[0][b'_key'], b'AD0000')
+        self.assertEqual(records[-1][b'_key'], b'AD2499')
 
     def test_partitioned_count(self, client_mock):
         scanner, records, keys, batch_count = \
             self._get_scanner_records(client_mock, collection_name='testp', meta=[b'_key'], batchsize=100,
-                                      startafter='AD2199', count=500)
+                                      startafter=b'AD2199', count=500)
         self.assertEqual(batch_count, 5)
         self.assertEqual(len(records), 500)
         self.assertEqual(len(keys), 500)
         self.assertEqual(sorted(keys), [r[b'_key'] for r in records])
-        self.assertEqual(records[0][b'_key'], 'AD2200')
-        self.assertEqual(records[-1][b'_key'], 'AD2699')
+        self.assertEqual(records[0][b'_key'], b'AD2200')
+        self.assertEqual(records[-1][b'_key'], b'AD2699')
 
 
 @patch('collection_scanner.scanner.ScrapinghubClient')
@@ -243,7 +243,7 @@ class CollectionScannerPartitionedTestIncomplete(BaseCollectionScannerTest):
     for i in range(4000):
         partition = i % 4
         if partition != 0:
-            samples['testp_%d' % partition].append(('AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
+            samples['testp_%d' % partition].append((b'AD%.4d' % i, {'field1': 'value 1-%.4d' % i}))
 
     def test_partitioned(self, client_mock):
         self.assertRaisesRegexp(KeyError, r'\'testp\'', self._get_scanner_records, client_mock, collection_name='testp', meta=[b'_key'],

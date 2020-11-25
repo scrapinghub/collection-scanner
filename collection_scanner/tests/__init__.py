@@ -25,15 +25,15 @@ class FakeCollection(object):
     def _must_issue_record(self, key, **kwargs):
         prefix = kwargs.get('prefix')
         retval = prefix is None or key.startswith(tuple(prefix))
-        startafter = kwargs.get('startafter') or ''
-        start = kwargs.get('start') or ''
+        startafter = kwargs.get('startafter') or b''
+        start = kwargs.get('start') or b''
         if isinstance(startafter, list):
-            startafter = startafter[0] or ''
+            startafter = startafter[0] or b''
         if isinstance(start, list):
             start = start[0]
         # start nulifies startafter
         if start:
-            startafter = ''
+            startafter = b''
         endts = kwargs.get('endts')
         retval = retval and key >= start and key > startafter and (not endts or self._get_basetime(key) < endts)
         return retval
