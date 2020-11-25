@@ -47,8 +47,8 @@ class FakeCollection(object):
     def get(self, **kwargs):
         if not self.samples:
             raise KeyError(None)
-        include_key = '_key' in kwargs.get('meta', {})
-        include_ts = '_ts' in kwargs.get('meta', {})
+        include_key = b'_key' in kwargs.get('meta', {})
+        include_ts = b'_ts' in kwargs.get('meta', {})
         count = kwargs.get('count') or None
         if isinstance(count, list):
             count = count[0] or None
@@ -56,9 +56,9 @@ class FakeCollection(object):
             rvalue = deepcopy(value)
             if self._must_issue_record(key, **kwargs):
                 if include_key:
-                    rvalue['_key'] = key
+                    rvalue[b'_key'] = key
                 if include_ts:
-                    rvalue['_ts'] = self._get_basetime(key)
+                    rvalue[b'_ts'] = self._get_basetime(key)
                 yield rvalue
                 if count is not None:
                     count -= 1
