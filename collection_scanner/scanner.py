@@ -54,8 +54,8 @@ class _CachedBlocksCollection(object):
         self.collections = []
         self.cache = defaultdict(list)
         self.return_cache = []
-        self.max_in_return_cache = b''
-        self.__last_requested_startafter = b''
+        self.max_in_return_cache = ''
+        self.__last_requested_startafter = ''
 
         if not partitions:
             self.collections.append(hsp.collections.new_store(colname))
@@ -117,8 +117,8 @@ class _CachedBlocksCollection(object):
                     data = False
                     for record in self._read_from_collection(col, count=[max_next_records], startafter=[startafter[col]], **kwargs):
                         data = True
-                        startafter[col] = record.get(b'_key') or record.get('key')
-                        pcache.append((record.get(b'_key') or record.get('key'), record))
+                        startafter[col] = record.get('_key') or record.get('key')
+                        pcache.append((record.get('_key') or record.get('key'), record))
                     if not data:
                         finished_collections.add(col)
                 if pcache and (len(self.return_cache) < max_next_records or pcache[0][0] < self.max_in_return_cache):
@@ -229,11 +229,11 @@ class CollectionScanner(object):
                 try:
                     for r in col.get(count=[max_next_records], start=start, meta=meta):
                         count += 1
-                        last = key = r.pop(b'_key')
-                        ts = r.pop(b'_ts')
+                        last = key = r.pop('_key')
+                        ts = r.pop('_ts')
                         secondary_data[key].update(r)
-                        if b'_ts' not in secondary_data[key] or ts > secondary_data[key][b'_ts']:
-                            secondary_data[key][b'_ts'] = ts
+                        if '_ts' not in secondary_data[key] or ts > secondary_data[key]['_ts']:
+                            secondary_data[key]['_ts'] = ts
                 except KeyError:
                     pass
                 if count < max_next_records:
@@ -257,7 +257,7 @@ class CollectionScanner(object):
         """
         kwargs = self.__get_kwargs.copy()
         original_meta = kwargs.pop('meta', [])
-        meta = {b'_key', b'_ts'}.union(original_meta)
+        meta = {b'_key', b'_ts'}#.union(original_meta)
         last_secondary_key = None
         batchcount = self.__batchsize
         max_next_records = self._get_max_next_records(batchcount)
@@ -268,32 +268,34 @@ class CollectionScanner(object):
         while max_next_records and self.__enabled:
             count = 0
             jump_prefix = False
+            print('HIHI', meta)
             for r in self.col.get(random_mode, count=[max_next_records], startafter=[self.__startafter], start=start, meta=meta, **kwargs):
-                if self.__stopbefore is not None and r[b'_key'].startswith(self.__stopbefore):
+                print(r.keys())
+                if self.__stopbefore is not None and r['_key'].startswith(self.__stopbefore):
                     self.__enabled = False
                     break
                 count += 1
                 for exclude in self.__exclude_prefixes:
-                    if r[b'_key'].startswith(exclude):
+                    if r['_key'].startswith(exclude):
                         self.__startafter = exclude + LIMIT_KEY_CHAR
                         jump_prefix = True
                         break
                 if jump_prefix:
                     break
-                self.__startafter = self.lastkey = r[b'_key']
+                self.__startafter = self.lastkey = r['_key']
                 if last_secondary_key is None or self.__startafter > last_secondary_key:
                     last_secondary_key, secondary_data = self.get_secondary_data(start=self.__startafter, meta=meta)
-                srecord = secondary_data.pop(r[b'_key'], None)
+                srecord = secondary_data.pop(r['_key'], None)
                 if srecord is not None:
-                    ts = srecord[b'_ts']
+                    ts = srecord['_ts']
                     r.update(srecord)
-                    if ts > r[b'_ts']:
-                        r[b'_ts'] = ts
+                    if ts > r['_ts']:
+                        r['_ts'] = ts
 
-                if self.__endts and r[b'_ts'] > self.__endts:
+                if self.__endts and r['_ts'] > self.__endts:
                     continue
 
-                for m in [b'_key', b'_ts']:
+                for m in ['_key', '_ts']:
                     if m not in original_meta:
                         r.pop(m)
 
