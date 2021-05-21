@@ -13,7 +13,6 @@ setup(
         'dateparser',
         'retrying',
         'scrapinghub>=2.3.1',
-        'msgpack-python>=0.5.6',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
