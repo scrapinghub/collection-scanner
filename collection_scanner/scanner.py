@@ -117,8 +117,8 @@ class _CachedBlocksCollection(object):
                     data = False
                     for record in self._read_from_collection(col, count=[max_next_records], startafter=[startafter[col]], **kwargs):
                         data = True
-                        startafter[col] = record[b'_key']
-                        pcache.append((record[b'_key'], record))
+                        startafter[col] = record.get(b'_key') or record.get('key')
+                        pcache.append((record.get(b'_key') or record.get('key')), record))
                     if not data:
                         finished_collections.add(col)
                 if pcache and (len(self.return_cache) < max_next_records or pcache[0][0] < self.max_in_return_cache):

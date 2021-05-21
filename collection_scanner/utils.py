@@ -67,7 +67,7 @@ def convert_bytes(obj):
     if isinstance(obj, bytes):
         return obj.decode()
     if isinstance(obj, collections.abc.Mapping):
-        return dict(map(convert_bytes, obj.items()))
+        return type(obj)(map(convert_bytes, obj.items()))
     if isinstance(obj, collections.abc.Iterable):
         return type(obj)(map(convert_bytes, obj))
     return obj
