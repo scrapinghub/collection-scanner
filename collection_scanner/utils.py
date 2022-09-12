@@ -4,7 +4,7 @@ import traceback
 import collections.abc
 
 
-LIMIT_KEY_CHAR = b'~'
+LIMIT_KEY_CHAR = '~'
 
 
 def retry_on_exception(exception):

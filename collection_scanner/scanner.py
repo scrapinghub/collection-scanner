@@ -80,7 +80,7 @@ class _CachedBlocksCollection(object):
         else: # remove all entries in cache below the given startafter
             assert requested_startafter > self.__last_requested_startafter, \
                    'startafter series must be strictly increasing. Previous startafter: %s Last startafter: %s' \
-                   % (self.__last_requested_startafter.decode(), requested_startafter.decode())
+                   % (self.__last_requested_startafter, requested_startafter)
             self.__last_requested_startafter = requested_startafter
             for col in self.cache.keys():
                 index = -1
